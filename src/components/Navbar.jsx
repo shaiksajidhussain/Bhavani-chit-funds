@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { gsap } from 'gsap';
 import ThemeToggle from './ThemeToggle';
 
@@ -75,7 +76,11 @@ const Navbar = () => {
   };
 
   const handleLogin = (type) => {
-    alert(`${type} login functionality coming soon!`);
+    if (type === 'Admin') {
+      window.location.href = '/dashboard';
+    } else {
+      alert(`${type} login functionality coming soon!`);
+    }
   };
 
   return (
@@ -138,6 +143,12 @@ const Navbar = () => {
             >
               Contact
             </a>
+            <Link 
+              to="/dashboard"
+              className="nav-link text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400"
+            >
+              Dashboard
+            </Link>
           </div>
 
           {/* Desktop Buttons */}
@@ -240,6 +251,13 @@ const Navbar = () => {
                 >
                   Contact
                 </a>
+                <Link 
+                  to="/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-lg font-medium text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400 py-3 px-4 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20"
+                >
+                  Dashboard
+                </Link>
               </div>
               
               <div className="px-4 py-8 space-y-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">

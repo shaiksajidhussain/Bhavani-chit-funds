@@ -33,7 +33,7 @@ const Home = () => {
       <ContactForm selectedScheme={selectedScheme} />
       <Footer />
     </div>
-  );
+  );  
 };
 
 export default Home;

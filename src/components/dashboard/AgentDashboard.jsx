@@ -23,7 +23,7 @@ const AgentDashboard = () => {
       status: 'Completed'
     },
     {
-      id: 2,
+      id: 2,    
       customerName: 'Priya Sharma',
       customerId: 'C002',
       amount: 2500,

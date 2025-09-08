@@ -29,10 +29,30 @@ const Reports = () => {
       pendingMembers: 200,
       defaulters: 50,
       collectionRate: 86.5
+    },
+    customer: {
+      totalCollection: 2500000,
+      paidMembers: 150,
+      pendingMembers: 25,
+      defaulters: 8,
+      collectionRate: 82.1
+    },
+    scheme: {
+      totalCollection: 5000000,
+      paidMembers: 200,
+      pendingMembers: 30,
+      defaulters: 12,
+      collectionRate: 87.3
     }
   };
 
-  const currentData = reportData[selectedReport];
+  const currentData = reportData[selectedReport] || {
+    totalCollection: 0,
+    paidMembers: 0,
+    pendingMembers: 0,
+    defaulters: 0,
+    collectionRate: 0
+  };
 
   const reportTypes = [
     { id: 'daily', label: 'Daily Report', icon: '📅' },
@@ -227,6 +247,48 @@ const Reports = () => {
           </div>
         </div>
       </div>
+
+      {/* Customer Report Specific Content */}
+      {selectedReport === 'customer' && (
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Customer Analysis</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <p className="text-2xl font-bold text-blue-600">150</p>
+              <p className="text-sm text-gray-600">Total Customers</p>
+            </div>
+            <div className="text-center p-4 bg-green-50 rounded-lg">
+              <p className="text-2xl font-bold text-green-600">142</p>
+              <p className="text-sm text-gray-600">Active Customers</p>
+            </div>
+            <div className="text-center p-4 bg-red-50 rounded-lg">
+              <p className="text-2xl font-bold text-red-600">8</p>
+              <p className="text-sm text-gray-600">Defaulted Customers</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Scheme Report Specific Content */}
+      {selectedReport === 'scheme' && (
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Scheme Analysis</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="text-center p-4 bg-purple-50 rounded-lg">
+              <p className="text-2xl font-bold text-purple-600">3</p>
+              <p className="text-sm text-gray-600">Total Schemes</p>
+            </div>
+            <div className="text-center p-4 bg-green-50 rounded-lg">
+              <p className="text-2xl font-bold text-green-600">2</p>
+              <p className="text-sm text-gray-600">Active Schemes</p>
+            </div>
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <p className="text-2xl font-bold text-blue-600">1</p>
+              <p className="text-sm text-gray-600">Completed Schemes</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Export Options */}
       <div className="bg-white p-6 rounded-lg shadow-sm border">

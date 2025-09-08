@@ -10,6 +10,7 @@ import AuctionManagement from './dashboard/AuctionManagement';
 import DashboardSidebar from './dashboard/DashboardSidebar';
 import Reports from './dashboard/Reports';
 import PassbookSystem from './dashboard/PassbookSystem';
+import Navbar from './Navbar';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -39,9 +40,11 @@ const Dashboard = () => {
   };
 
   return (
+    <>
+      {/* <Navbar /> */}
     <div className="min-h-screen bg-gray-50">
-      <div className="flex">
-        <DashboardSidebar 
+      <div className="flex ">
+        <DashboardSidebar className="z-[99999]" 
           activeTab={activeTab} 
           setActiveTab={setActiveTab}
           userType={userType}
@@ -50,9 +53,10 @@ const Dashboard = () => {
           <div className="p-6">
             {renderContent()}
           </div>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

@@ -6,17 +6,67 @@ const CustomerManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [groupFilter, setGroupFilter] = useState('all');
+  const [schemeFilter, setSchemeFilter] = useState('all');
   const [showPassbookModal, setShowPassbookModal] = useState(false);
   const [selectedCustomerForPassbook, setSelectedCustomerForPassbook] = useState(null);
 
-  // Static customer data
+  // Static chit schemes data (matching ChitSchemeManagement)
+  const chitSchemesData = [
+    {
+      id: 1,
+      name: '₹5,00,000 - 30 months',
+      chitValue: 500000,
+      duration: 30,
+      durationType: 'months',
+      dailyPayment: 500,
+      monthlyPayment: 15000,
+      numberOfMembers: 30,
+      auctionRules: 'Before lifting: ₹500 daily, After lifting: ₹500 daily',
+      status: 'Active',
+      membersEnrolled: 25,
+      startDate: '2024-01-01',
+      endDate: '2026-07-01'
+    },
+    {
+      id: 2,
+      name: '₹5,00,000 - 200 days',
+      chitValue: 500000,
+      duration: 200,
+      durationType: 'days',
+      dailyPayment: 2500,
+      monthlyPayment: 75000,
+      numberOfMembers: 20,
+      auctionRules: 'Before lifting: ₹2500 daily, After lifting: ₹3000 daily',
+      status: 'Active',
+      membersEnrolled: 18,
+      startDate: '2024-02-01',
+      endDate: '2024-08-19'
+    },
+    {
+      id: 3,
+      name: '₹3,00,000 - 18 months',
+      chitValue: 300000,
+      duration: 18,
+      durationType: 'months',
+      dailyPayment: 300,
+      monthlyPayment: 9000,
+      numberOfMembers: 25,
+      auctionRules: 'Before lifting: ₹300 daily, After lifting: ₹300 daily',
+      status: 'Completed',
+      membersEnrolled: 25,
+      startDate: '2023-01-01',
+      endDate: '2024-07-01'
+    }
+  ];
+
+  // Static customer data with scheme IDs
   const [customers, setCustomers] = useState([
     {
       id: 1,
       name: 'Rajesh Kumar',
       mobile: '9876543210',
       address: '123 Main Street, Bangalore',
-      chitScheme: '₹5,00,000 - 30 months',
+      schemeId: 1, // References chitSchemesData[0]
       startDate: '2024-01-15',
       amountPerDay: 500,
       duration: 30,
@@ -30,7 +80,7 @@ const CustomerManagement = () => {
       name: 'Priya Sharma',
       mobile: '9876543211',
       address: '456 Park Avenue, Mumbai',
-      chitScheme: '₹5,00,000 - 200 days',
+      schemeId: 2, // References chitSchemesData[1]
       startDate: '2024-02-01',
       amountPerDay: 2500,
       duration: 200,
@@ -44,7 +94,7 @@ const CustomerManagement = () => {
       name: 'Amit Singh',
       mobile: '9876543212',
       address: '789 Garden Road, Delhi',
-      chitScheme: '₹5,00,000 - 30 months',
+      schemeId: 1, // References chitSchemesData[0]
       startDate: '2023-12-01',
       amountPerDay: 500,
       duration: 30,
@@ -58,7 +108,7 @@ const CustomerManagement = () => {
       name: 'Sunita Patel',
       mobile: '9876543213',
       address: '321 Lake View, Pune',
-      chitScheme: '₹5,00,000 - 200 days',
+      schemeId: 2, // References chitSchemesData[1]
       startDate: '2024-03-15',
       amountPerDay: 3000,
       duration: 200,
@@ -72,7 +122,7 @@ const CustomerManagement = () => {
       name: 'Vikram Reddy',
       mobile: '9876543214',
       address: '555 Tech Park, Hyderabad',
-      chitScheme: '₹3,00,000 - 18 months',
+      schemeId: 3, // References chitSchemesData[2]
       startDate: '2024-01-01',
       amountPerDay: 300,
       duration: 18,
@@ -86,7 +136,7 @@ const CustomerManagement = () => {
       name: 'Anita Gupta',
       mobile: '9876543215',
       address: '777 Business Center, Chennai',
-      chitScheme: '₹5,00,000 - 30 months',
+      schemeId: 1, // References chitSchemesData[0]
       startDate: '2024-02-15',
       amountPerDay: 500,
       duration: 30,
@@ -100,7 +150,7 @@ const CustomerManagement = () => {
       name: 'Suresh Kumar',
       mobile: '9876543216',
       address: '999 Mall Road, Kolkata',
-      chitScheme: '₹5,00,000 - 200 days',
+      schemeId: 2, // References chitSchemesData[1]
       startDate: '2024-03-01',
       amountPerDay: 2500,
       duration: 200,
@@ -114,7 +164,7 @@ const CustomerManagement = () => {
       name: 'Meera Joshi',
       mobile: '9876543217',
       address: '111 Hill Station, Shimla',
-      chitScheme: '₹3,00,000 - 18 months',
+      schemeId: 3, // References chitSchemesData[2]
       startDate: '2023-11-01',
       amountPerDay: 300,
       duration: 18,
@@ -129,7 +179,7 @@ const CustomerManagement = () => {
     name: '',
     mobile: '',
     address: '',
-    chitScheme: '',
+    schemeId: '',
     startDate: '',
     amountPerDay: '',
     duration: '',
@@ -138,21 +188,21 @@ const CustomerManagement = () => {
     documents: []
   });
 
-  const chitSchemes = [
-    '₹5,00,000 - 30 months - ₹500 daily',
-    '₹5,00,000 - 200 days - ₹2500 daily',
-    '₹5,00,000 - 200 days - ₹3000 daily (After lifting)',
-    'Custom Scheme'
-  ];
-
   const groups = ['Group A', 'Group B', 'Group C'];
+
+  // Helper function to get scheme name by ID
+  const getSchemeName = (schemeId) => {
+    const scheme = chitSchemesData.find(s => s.id === schemeId);
+    return scheme ? scheme.name : 'Unknown Scheme';
+  };
 
   const filteredCustomers = customers.filter(customer => {
     const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          customer.mobile.includes(searchTerm);
     const matchesStatus = statusFilter === 'all' || customer.status.toLowerCase() === statusFilter.toLowerCase();
     const matchesGroup = groupFilter === 'all' || customer.group === groupFilter;
-    return matchesSearch && matchesStatus && matchesGroup;
+    const matchesScheme = schemeFilter === 'all' || customer.schemeId.toString() === schemeFilter;
+    return matchesSearch && matchesStatus && matchesGroup && matchesScheme;
   });
 
   const handleInputChange = (e) => {
@@ -183,7 +233,7 @@ const CustomerManagement = () => {
       name: '',
       mobile: '',
       address: '',
-      chitScheme: '',
+      schemeId: '',
       startDate: '',
       amountPerDay: '',
       duration: '',
@@ -234,7 +284,7 @@ const CustomerManagement = () => {
 
       {/* Search and Filter */}
       <div className="bg-white p-6 rounded-lg shadow-sm border">
-        <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1">
             <input
               type="text"
@@ -244,29 +294,56 @@ const CustomerManagement = () => {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          <div className="md:w-48">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="completed">Completed</option>
-              <option value="defaulted">Defaulted</option>
-            </select>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:w-auto">
+            <div className="md:w-48">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="completed">Completed</option>
+                <option value="defaulted">Defaulted</option>
+              </select>
+            </div>
+            <div className="md:w-48">
+              <select
+                value={groupFilter}
+                onChange={(e) => setGroupFilter(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">All Groups</option>
+                {groups.map((group) => (
+                  <option key={group} value={group}>{group}</option>
+                ))}
+              </select>
+            </div>
+            <div className="md:w-48">
+              <select
+                value={schemeFilter}
+                onChange={(e) => setSchemeFilter(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">All Schemes</option>
+                {chitSchemesData.map((scheme) => (
+                  <option key={scheme.id} value={scheme.id}>{scheme.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div className="md:w-48">
-            <select
-              value={groupFilter}
-              onChange={(e) => setGroupFilter(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          <div className="flex items-center">
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setStatusFilter('all');
+                setGroupFilter('all');
+                setSchemeFilter('all');
+              }}
+              className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              <option value="all">All Groups</option>
-              {groups.map((group) => (
-                <option key={group} value={group}>{group}</option>
-              ))}
-            </select>
+              Clear Filters
+            </button>
           </div>
         </div>
       </div>
@@ -320,15 +397,15 @@ const CustomerManagement = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Chit Scheme</label>
                   <select
-                    name="chitScheme"
-                    value={formData.chitScheme}
+                    name="schemeId"
+                    value={formData.schemeId}
                     onChange={handleInputChange}
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">Select Scheme</option>
-                    {chitSchemes.map((scheme, index) => (
-                      <option key={index} value={scheme}>{scheme}</option>
+                    {chitSchemesData.map((scheme) => (
+                      <option key={scheme.id} value={scheme.id}>{scheme.name}</option>
                     ))}
                   </select>
                 </div>
@@ -410,7 +487,7 @@ const CustomerManagement = () => {
                       name: '',
                       mobile: '',
                       address: '',
-                      chitScheme: '',
+                      schemeId: '',
                       startDate: '',
                       amountPerDay: '',
                       duration: '',
@@ -435,8 +512,9 @@ const CustomerManagement = () => {
         </div>
       )}
 
-      {/* Group Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Group Statistics */}
         {groups.map((group) => {
           const groupCustomers = customers.filter(customer => customer.group === group);
           const activeCustomers = groupCustomers.filter(customer => customer.status === 'Active').length;
@@ -448,6 +526,29 @@ const CustomerManagement = () => {
                 <div>
                   <p className="text-sm font-medium text-gray-600">{group}</p>
                   <p className="text-2xl font-bold text-gray-900">{groupCustomers.length}</p>
+                  <p className="text-sm text-gray-500">{activeCustomers} active</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-600">Total Balance</p>
+                  <p className="text-lg font-semibold text-gray-900">₹{totalBalance.toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        
+        {/* Scheme Statistics */}
+        {chitSchemesData.map((scheme) => {
+          const schemeCustomers = customers.filter(customer => customer.schemeId === scheme.id);
+          const activeCustomers = schemeCustomers.filter(customer => customer.status === 'Active').length;
+          const totalBalance = schemeCustomers.reduce((sum, customer) => sum + customer.balance, 0);
+          
+          return (
+            <div key={scheme.id} className="bg-white p-6 rounded-lg shadow-sm border">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">{scheme.name}</p>
+                  <p className="text-2xl font-bold text-gray-900">{schemeCustomers.length}</p>
                   <p className="text-sm text-gray-500">{activeCustomers} active</p>
                 </div>
                 <div className="text-right">
@@ -488,6 +589,7 @@ const CustomerManagement = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member ID</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chit Scheme</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chit Group</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Paid</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pending Due</th>
@@ -514,6 +616,9 @@ const CustomerManagement = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {customer.mobile}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {getSchemeName(customer.schemeId)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {customer.group}
@@ -580,7 +685,7 @@ const CustomerManagement = () => {
                   </div>
                   <div>
                     <span className="text-sm text-gray-600">Chit Scheme:</span>
-                    <p className="font-medium">{selectedCustomerForPassbook.chitScheme}</p>
+                    <p className="font-medium">{getSchemeName(selectedCustomerForPassbook.schemeId)}</p>
                   </div>
                   <div>
                     <span className="text-sm text-gray-600">Status:</span>
@@ -614,13 +719,18 @@ const CustomerManagement = () => {
                         const amount = dailyPayment * 30; // Assuming 30 days per month
                         const chittiAmount = 500000 + (Math.floor(month / 2) * 10000);
                         
+                        // Calculate date based on start date
+                        const startDate = new Date(selectedCustomerForPassbook.startDate);
+                        const monthDate = new Date(startDate);
+                        monthDate.setMonth(startDate.getMonth() + index);
+                        
                         return (
                           <tr key={month} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {month}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {/* Date would be calculated based on start date */}
+                              {monthDate.toLocaleDateString('en-GB')}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               ₹{dailyPayment.toLocaleString()}
@@ -658,26 +768,28 @@ const CustomerManagement = () => {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {/* Sample passbook entries for this customer */}
-                      {[
-                        {
-                          id: 1,
-                          date: '2024-12-14',
-                          amountPaid: selectedCustomerForPassbook.amountPerDay,
-                          balance: selectedCustomerForPassbook.balance,
-                          paymentMethod: 'Cash',
-                          collectorName: 'Amit Singh',
-                          signature: 'Approved'
-                        },
-                        {
-                          id: 2,
-                          date: '2024-12-13',
-                          amountPaid: selectedCustomerForPassbook.amountPerDay,
-                          balance: selectedCustomerForPassbook.balance + selectedCustomerForPassbook.amountPerDay,
-                          paymentMethod: 'Cash',
-                          collectorName: 'Amit Singh',
-                          signature: 'Approved'
+                      {(() => {
+                        const startDate = new Date(selectedCustomerForPassbook.startDate);
+                        const entries = [];
+                        
+                        // Generate entries for the last 10 days
+                        for (let i = 0; i < 10; i++) {
+                          const entryDate = new Date(startDate);
+                          entryDate.setDate(startDate.getDate() + i);
+                          
+                          entries.push({
+                            id: i + 1,
+                            date: entryDate.toISOString().split('T')[0],
+                            amountPaid: selectedCustomerForPassbook.amountPerDay,
+                            balance: selectedCustomerForPassbook.balance + (i * selectedCustomerForPassbook.amountPerDay),
+                            paymentMethod: i % 3 === 0 ? 'Cash' : i % 3 === 1 ? 'UPI' : 'Bank Transfer',
+                            collectorName: i % 2 === 0 ? 'Amit Singh' : 'Priya Sharma',
+                            signature: i < 8 ? 'Approved' : i === 8 ? 'Pending' : 'Rejected'
+                          });
                         }
-                      ].map((entry) => (
+                        
+                        return entries;
+                      })().map((entry) => (
                         <tr key={entry.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {new Date(entry.date).toLocaleDateString()}

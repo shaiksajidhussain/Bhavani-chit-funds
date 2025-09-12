@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Base64 Debug Tool</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .debug-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .output { background: #f5f5f5; padding: 10px; border-radius: 3px; word-break: break-all; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        input[type="file"] { margin: 10px 0; }
+        img { max-width: 200px; max-height: 200px; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Photo Base64 Debug Tool</h1>
+        
+        <div class="debug-section">
+            <h3>1. Upload an Image</h3>
+            <input type="file" id="imageInput" accept="image/*">
+            <button onclick="convertToBase64()">Convert to Base64</button>
+        </div>
+
+        <div class="debug-section">
+            <h3>2. Base64 Output</h3>
+            <div id="base64Output" class="output">No image selected</div>
+        </div>
+
+        <div class="debug-section">
+            <h3>3. Image Preview</h3>
+            <div id="imagePreview">
+                <p>No image preview</p>
+            </div>
+        </div>
+
+        <div class="debug-section">
+            <h3>4. Validation Test</h3>
+            <button onclick="testValidation()">Test Validation</button>
+            <div id="validationOutput" class="output">Click "Test Validation" to see results</div>
+        </div>
+
+        <div class="debug-section">
+            <h3>5. API Payload Test</h3>
+            <button onclick="generatePayload()">Generate API Payload</button>
+            <div id="payloadOutput" class="output">Click "Generate API Payload" to see results</div>
+        </div>
+    </div>
+
+    <script>
+        let currentBase64 = '';
+
+        function convertToBase64() {
+            const fileInput = document.getElementById('imageInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a file first');
+                return;
+            }
+
+            console.log('File selected:', file);
+            console.log('File type:', file.type);
+            console.log('File size:', file.size);
+            console.log('File name:', file.name);
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                currentBase64 = event.target.result;
+                console.log('Base64 conversion successful');
+                console.log('Base64 starts with:', currentBase64.substring(0, 50));
+                console.log('Base64 length:', currentBase64.length);
+                
+                document.getElementById('base64Output').textContent = currentBase64.substring(0, 200) + '...';
+                
+                // Show image preview
+                const img = document.createElement('img');
+                img.src = currentBase64;
+                img.alt = 'Preview';
+                document.getElementById('imagePreview').innerHTML = '';
+                document.getElementById('imagePreview').appendChild(img);
+            };
+            reader.onerror = function(error) {
+                console.error('Error converting file to Base64:', error);
+                alert('Error converting file to Base64');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function testValidation() {
+            if (!currentBase64) {
+                document.getElementById('validationOutput').textContent = 'No Base64 data available. Please convert an image first.';
+                return;
+            }
+
+            const isDataImage = currentBase64.startsWith('data:image/');
+            const hasBase64 = currentBase64.includes('base64,');
+            const isValidFormat = /^data:image\/(jpeg|jpg|png|gif|webp|bmp|tiff|svg\+xml);base64,/.test(currentBase64);
+            
+            const base64Part = currentBase64.split(',')[1];
+            const isValidBase64 = base64Part && /^[A-Za-z0-9+/]*={0,2}$/.test(base64Part);
+
+            const result = `
+                Starts with data:image/: ${isDataImage}
+                Contains base64,: ${hasBase64}
+                Valid format: ${isValidFormat}
+                Valid base64 content: ${isValidBase64}
+                Overall valid: ${isValidFormat && isValidBase64}
+                First 100 chars: ${currentBase64.substring(0, 100)}
+            `;
+
+            document.getElementById('validationOutput').textContent = result;
+            console.log('Validation result:', { isDataImage, hasBase64, isValidFormat, isValidBase64 });
+        }
+
+        function generatePayload() {
+            if (!currentBase64) {
+                document.getElementById('payloadOutput').textContent = 'No Base64 data available. Please convert an image first.';
+                return;
+            }
+
+            const payload = {
+                "name": "test",
+                "mobile": "7893160318",
+                "address": "sainagar 5th cross anantapur, near masjid 12-940",
+                "schemeId": "scheme-1",
+                "startDate": "2025-09-13",
+                "lastDate": "2025-09-15",
+                "amountPerDay": "1000",
+                "duration": "200",
+                "durationType": "MONTHS",
+                "group": "Group A",
+                "status": "ACTIVE",
+                "photo": currentBase64
+            };
+
+            document.getElementById('payloadOutput').textContent = JSON.stringify(payload, null, 2);
+            console.log('Generated payload:', payload);
+        }
+    </script>
+</body>
+</html>

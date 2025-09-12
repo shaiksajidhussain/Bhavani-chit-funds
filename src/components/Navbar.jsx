@@ -1,12 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { gsap } from 'gsap';
 import ThemeToggle from './ThemeToggle';
+import { useAuth } from '../contexts/AuthContext';
 
-const Navbar = () => {
+const Navbar = ({ onShowLogin }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navbarRef = useRef(null);
   const mobileMenuRef = useRef(null);
+  const { user, logout } = useAuth();
+  const location = useLocation();
+  
+  // Check if we're on dashboard page
+  const isDashboardPage = location.pathname.startsWith('/dashboard');
 
   useEffect(() => {
     const handleScroll = () => {
@@ -77,10 +83,15 @@ const Navbar = () => {
 
   const handleLogin = (type) => {
     if (type === 'Admin') {
-      window.location.href = '/dashboard';
+      onShowLogin();
     } else {
       alert(`${type} login functionality coming soon!`);
     }
+  };
+
+  const handleLogout = () => {
+    logout();
+    setMobileMenuOpen(false);
   };
 
   return (
@@ -92,103 +103,169 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-16 lg:h-20">
           {/* Logo */}
           <div className="flex-shrink-0">
-            <img 
-              src="https://res.cloudinary.com/dgus6y6lm/image/upload/v1756502505/bhavanilogo_jjef0a.jpg"
-              alt="Bhavani Chit Funds Logo"
-              className="h-12 lg:h-16 w-auto object-contain"
-            />
-          </div>
-
-          {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center space-x-8">
-            <a 
-              href="#home" 
-              onClick={(e) => { e.preventDefault(); scrollToSection('home'); }}
-              className="nav-link text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400"
-            >
-              Home
-            </a>
-            <a 
-              href="#schemes" 
-              onClick={(e) => { e.preventDefault(); scrollToSection('schemes'); }}
-              className="nav-link text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400"
-            >
-              Schemes
-            </a>
-            <a 
-              href="#how-it-works" 
-              onClick={(e) => { e.preventDefault(); scrollToSection('how-it-works'); }}
-              className="nav-link text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400"
-            >
-              How It Works
-            </a>
-            <a 
-              href="#features" 
-              onClick={(e) => { e.preventDefault(); scrollToSection('features'); }}
-              className="nav-link text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400"
-            >
-              Features
-            </a>
-            <a 
-              href="#reports" 
-              onClick={(e) => { e.preventDefault(); scrollToSection('reports'); }}
-              className="nav-link text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400"
-            >
-              Reports
-            </a>
-            <a 
-              href="#contact" 
-              onClick={(e) => { e.preventDefault(); scrollToSection('contact'); }}
-              className="nav-link text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400"
-            >
-              Contact
-            </a>
-            <Link 
-              to="/dashboard"
-              className="nav-link text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400"
-            >
-              Dashboard
+            <Link to="/" className="block">
+              <img 
+                src="https://res.cloudinary.com/dgus6y6lm/image/upload/v1756502505/bhavanilogo_jjef0a.jpg"
+                alt="Bhavani Chit Funds Logo"
+                className="h-12 lg:h-16 w-auto object-contain hover:opacity-80 transition-opacity duration-200 cursor-pointer"
+              />
             </Link>
           </div>
 
+          {/* Desktop Navigation */}
+          {!isDashboardPage && (
+            <div className="hidden lg:flex items-center space-x-8">
+              <a 
+                href="#home" 
+                onClick={(e) => { e.preventDefault(); scrollToSection('home'); }}
+                className="nav-link text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400"
+              >
+                Home
+              </a>
+              <a 
+                href="#schemes" 
+                onClick={(e) => { e.preventDefault(); scrollToSection('schemes'); }}
+                className="nav-link text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400"
+              >
+                Schemes
+              </a>
+              <a 
+                href="#how-it-works" 
+                onClick={(e) => { e.preventDefault(); scrollToSection('how-it-works'); }}
+                className="nav-link text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400"
+              >
+                How It Works
+              </a>
+              <a 
+                href="#features" 
+                onClick={(e) => { e.preventDefault(); scrollToSection('features'); }}
+                className="nav-link text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400"
+              >
+                Features
+              </a>
+              <a 
+                href="#reports" 
+                onClick={(e) => { e.preventDefault(); scrollToSection('reports'); }}
+                className="nav-link text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400"
+              >
+                Reports
+              </a>
+              <a 
+                href="#contact" 
+                onClick={(e) => { e.preventDefault(); scrollToSection('contact'); }}
+                className="nav-link text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400"
+              >
+                Contact
+              </a>
+              {user && (
+                <Link 
+                  to="/dashboard"
+                  className="nav-link text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400"
+                >
+                  Dashboard
+                </Link>
+              )}
+            </div>
+          )}
+
           {/* Desktop Buttons */}
-          <div className="hidden lg:flex items-center space-x-4">
-            <ThemeToggle />
-            <button
-              onClick={() => handleLogin('Client')}
-              className="px-5 py-2.5 text-sm font-medium text-violet-600 border border-violet-600 rounded-xl hover:bg-violet-600 hover:text-white transition-all duration-200 shadow-sm hover:shadow-md dark:text-violet-400 dark:border-violet-400 dark:hover:bg-violet-400 dark:hover:text-gray-900"
-            >
-              Client Login
-            </button>
-            <button
-              onClick={() => handleLogin('Admin')}
-              className="px-5 py-2.5 text-sm font-medium text-white bg-violet-600 rounded-xl hover:bg-violet-700 transition-all duration-200 shadow-sm hover:shadow-md dark:bg-violet-500 dark:hover:bg-violet-600"
-            >
-              Admin Login
-            </button>
-          </div>
+          {!isDashboardPage && (
+            <div className="hidden lg:flex items-center space-x-4">
+              <ThemeToggle />
+              {user ? (
+                <>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      Welcome, {user.name}
+                    </span>
+                    <span className="px-2 py-1 text-xs font-medium bg-violet-100 text-violet-800 rounded-full dark:bg-violet-900 dark:text-violet-200">
+                      {user.role}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="px-5 py-2.5 text-sm font-medium text-red-600 border border-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all duration-200 shadow-sm hover:shadow-md dark:text-red-400 dark:border-red-400 dark:hover:bg-red-400 dark:hover:text-gray-900"
+                  >
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => handleLogin('Client')}
+                    className="px-5 py-2.5 text-sm font-medium text-violet-600 border border-violet-600 rounded-xl hover:bg-violet-600 hover:text-white transition-all duration-200 shadow-sm hover:shadow-md dark:text-violet-400 dark:border-violet-400 dark:hover:bg-violet-400 dark:hover:text-gray-900"
+                  >
+                    Client Login
+                  </button>
+                  <button
+                    onClick={() => handleLogin('Admin')}
+                    className="px-5 py-2.5 text-sm font-medium text-white bg-violet-600 rounded-xl hover:bg-violet-700 transition-all duration-200 shadow-sm hover:shadow-md dark:bg-violet-500 dark:hover:bg-violet-600"
+                  >
+                    Admin Login
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+          
+          {/* Dashboard Page - Show only user info and logout */}
+          {isDashboardPage && user && (
+            <div className="hidden lg:flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Welcome, {user.name}
+                </span>
+                <span className="px-2 py-1 text-xs font-medium bg-violet-100 text-violet-800 rounded-full dark:bg-violet-900 dark:text-violet-200">
+                  {user.role}
+                </span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="px-5 py-2.5 text-sm font-medium text-red-600 border border-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all duration-200 shadow-sm hover:shadow-md dark:text-red-400 dark:border-red-400 dark:hover:bg-red-400 dark:hover:text-gray-900"
+              >
+                Logout
+              </button>
+            </div>
+          )}
 
           {/* Mobile menu button */}
-          <div className="lg:hidden">
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400"
-              aria-label="Toggle mobile menu"
-            >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                {mobileMenuOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
-            </button>
-          </div>
+          {!isDashboardPage && (
+            <div className="lg:hidden">
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400"
+                aria-label="Toggle mobile menu"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  {mobileMenuOpen ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  )}
+                </svg>
+              </button>
+            </div>
+          )}
+          
+          {/* Dashboard Page Mobile - Show only user info and logout */}
+          {isDashboardPage && user && (
+            <div className="lg:hidden flex items-center space-x-2">
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                {user.name}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="px-3 py-1.5 text-xs font-medium text-red-600 border border-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all duration-200 dark:text-red-400 dark:border-red-400 dark:hover:bg-red-400 dark:hover:text-gray-900"
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Mobile Menu Overlay */}
-      {mobileMenuOpen && (
+      {!isDashboardPage && mobileMenuOpen && (
         <>
           {/* Backdrop */}
           <div 
@@ -251,38 +328,61 @@ const Navbar = () => {
                 >
                   Contact
                 </a>
-                <Link 
-                  to="/dashboard"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block text-lg font-medium text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400 py-3 px-4 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20"
-                >
-                  Dashboard
-                </Link>
+                {user && (
+                  <Link 
+                    to="/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block text-lg font-medium text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400 py-3 px-4 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20"
+                  >
+                    Dashboard
+                  </Link>
+                )}
               </div>
               
               <div className="px-4 py-8 space-y-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                 <div className="flex justify-center">
                   <ThemeToggle />
                 </div>
-                <button
-                  onClick={() => handleLogin('Client')}
-                  className="w-full px-5 py-3 text-sm font-medium text-violet-600 border border-violet-600 rounded-xl hover:bg-violet-600 hover:text-white transition-all duration-200 dark:text-violet-400 dark:border-violet-400 dark:hover:bg-violet-400 dark:hover:text-gray-900 hover:shadow-md"
-                >
-                  Client Login
-                </button>
-                <button
-                  onClick={() => handleLogin('Admin')}
-                  className="w-full px-5 py-3 text-sm font-medium text-white bg-violet-600 rounded-xl hover:bg-violet-700 transition-all duration-200 dark:bg-violet-500 dark:hover:bg-violet-600 hover:shadow-md"
-                >
-                  Admin Login
-                </button>
+                {user ? (
+                  <>
+                    <div className="text-center">
+                      <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                        Welcome, {user.name}
+                      </p>
+                      <span className="px-2 py-1 text-xs font-medium bg-violet-100 text-violet-800 rounded-full dark:bg-violet-900 dark:text-violet-200">
+                        {user.role}
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full px-5 py-3 text-sm font-medium text-red-600 border border-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all duration-200 dark:text-red-400 dark:border-red-400 dark:hover:bg-red-400 dark:hover:text-gray-900 hover:shadow-md"
+                    >
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => handleLogin('Client')}
+                      className="w-full px-5 py-3 text-sm font-medium text-violet-600 border border-violet-600 rounded-xl hover:bg-violet-600 hover:text-white transition-all duration-200 dark:text-violet-400 dark:border-violet-400 dark:hover:bg-violet-400 dark:hover:text-gray-900 hover:shadow-md"
+                    >
+                      Client Login
+                    </button>
+                    <button
+                      onClick={() => handleLogin('Admin')}
+                      className="w-full px-5 py-3 text-sm font-medium text-white bg-violet-600 rounded-xl hover:bg-violet-700 transition-all duration-200 dark:bg-violet-500 dark:hover:bg-violet-600 hover:shadow-md"
+                    >
+                      Admin Login
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
         </>
       )}
 
-      <style jsx>{`
+      <style>{`
         .nav-scrolled {
           box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }

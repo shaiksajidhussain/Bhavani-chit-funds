@@ -37,7 +37,7 @@ const DashboardSidebar = ({ activeTab, setActiveTab, userType }) => {
   const menuItems = getMenuItems();
 
   return (
-    <div className="fixed left-0 top-0 h-full w-64 bg-white shadow-lg z-10">
+    <div className="fixed left-0 top-16 h-full w-64 bg-white shadow-lg z-10" style={{ height: 'calc(100vh - 4rem)' }}>
       <div className="p-6">
         <div className="flex items-center space-x-2 mb-8">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">

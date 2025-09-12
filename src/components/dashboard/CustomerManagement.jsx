@@ -1,286 +1,335 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import useCustomerStore from '../../stores/customerStore';
+import usePassbookStore from '../../stores/passbookStore';
+import { fileToBase64 } from '../../utils/imageUtils';
 
 const CustomerManagement = () => {
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState(null);
+  // Customer store
+  const {
+    customers,
+    chitSchemes,
+    loading,
+    error,
+    selectedCustomer,
+    showCreateForm,
+    editingCustomer,
+    showPassbookModal,
+    setShowCreateForm,
+    setEditingCustomer,
+    setShowPassbookModal,
+    setSelectedCustomer,
+    resetForm,
+    fetchCustomers,
+    createCustomer,
+    updateCustomer,
+    deleteCustomer,
+    fetchChitSchemes
+  } = useCustomerStore();
+
+  // Passbook store
+  const {
+    entries: passbookEntries,
+    loading: passbookLoading,
+    error: passbookError,
+    showAddForm: showPassbookForm,
+    formData: passbookFormData,
+    setShowAddForm: setShowPassbookForm,
+    setFormData: setPassbookFormData,
+    resetForm: resetPassbookForm,
+    fetchPassbookEntries,
+    createPassbookEntry,
+    updatePassbookEntry,
+    deletePassbookEntry,
+    clearError: clearPassbookError
+  } = usePassbookStore();
+
+  // Local state for filters
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [groupFilter, setGroupFilter] = useState('all');
   const [schemeFilter, setSchemeFilter] = useState('all');
-  const [showPassbookModal, setShowPassbookModal] = useState(false);
-  const [selectedCustomerForPassbook, setSelectedCustomerForPassbook] = useState(null);
+  const [editingPassbookEntry, setEditingPassbookEntry] = useState(null);
 
-  // Static chit schemes data (matching ChitSchemeManagement)
-  const chitSchemesData = [
-    {
-      id: 1,
-      name: '₹5,00,000 - 30 months',
-      chitValue: 500000,
-      duration: 30,
-      durationType: 'months',
-      dailyPayment: 500,
-      monthlyPayment: 15000,
-      numberOfMembers: 30,
-      auctionRules: 'Before lifting: ₹500 daily, After lifting: ₹500 daily',
-      status: 'Active',
-      membersEnrolled: 25,
-      startDate: '2024-01-01',
-      endDate: '2026-07-01'
-    },
-    {
-      id: 2,
-      name: '₹5,00,000 - 200 days',
-      chitValue: 500000,
-      duration: 200,
-      durationType: 'days',
-      dailyPayment: 2500,
-      monthlyPayment: 75000,
-      numberOfMembers: 20,
-      auctionRules: 'Before lifting: ₹2500 daily, After lifting: ₹3000 daily',
-      status: 'Active',
-      membersEnrolled: 18,
-      startDate: '2024-02-01',
-      endDate: '2024-08-19'
-    },
-    {
-      id: 3,
-      name: '₹3,00,000 - 18 months',
-      chitValue: 300000,
-      duration: 18,
-      durationType: 'months',
-      dailyPayment: 300,
-      monthlyPayment: 9000,
-      numberOfMembers: 25,
-      auctionRules: 'Before lifting: ₹300 daily, After lifting: ₹300 daily',
-      status: 'Completed',
-      membersEnrolled: 25,
-      startDate: '2023-01-01',
-      endDate: '2024-07-01'
-    }
-  ];
-
-  // Static customer data with scheme IDs
-  const [customers, setCustomers] = useState([
-    {
-      id: 1,
-      name: 'Rajesh Kumar',
-      mobile: '9876543210',
-      address: '123 Main Street, Bangalore',
-      schemeId: 1, // References chitSchemesData[0]
-      startDate: '2024-01-15',
-      amountPerDay: 500,
-      duration: 30,
-      status: 'Active',
-      balance: 45000,
-      documents: ['Aadhar Card', 'PAN Card'],
-      group: 'Group A'
-    },
-    {
-      id: 2,
-      name: 'Priya Sharma',
-      mobile: '9876543211',
-      address: '456 Park Avenue, Mumbai',
-      schemeId: 2, // References chitSchemesData[1]
-      startDate: '2024-02-01',
-      amountPerDay: 2500,
-      duration: 200,
-      status: 'Active',
-      balance: 125000,
-      documents: ['Aadhar Card', 'Bank Passbook'],
-      group: 'Group B'
-    },
-    {
-      id: 3,
-      name: 'Amit Singh',
-      mobile: '9876543212',
-      address: '789 Garden Road, Delhi',
-      schemeId: 1, // References chitSchemesData[0]
-      startDate: '2023-12-01',
-      amountPerDay: 500,
-      duration: 30,
-      status: 'Completed',
-      balance: 0,
-      documents: ['Aadhar Card', 'PAN Card', 'Voter ID'],
-      group: 'Group A'
-    },
-    {
-      id: 4,
-      name: 'Sunita Patel',
-      mobile: '9876543213',
-      address: '321 Lake View, Pune',
-      schemeId: 2, // References chitSchemesData[1]
-      startDate: '2024-03-15',
-      amountPerDay: 3000,
-      duration: 200,
-      status: 'Defaulted',
-      balance: 180000,
-      documents: ['Aadhar Card'],
-      group: 'Group C'
-    },
-    {
-      id: 5,
-      name: 'Vikram Reddy',
-      mobile: '9876543214',
-      address: '555 Tech Park, Hyderabad',
-      schemeId: 3, // References chitSchemesData[2]
-      startDate: '2024-01-01',
-      amountPerDay: 300,
-      duration: 18,
-      status: 'Active',
-      balance: 27000,
-      documents: ['Aadhar Card', 'PAN Card'],
-      group: 'Group B'
-    },
-    {
-      id: 6,
-      name: 'Anita Gupta',
-      mobile: '9876543215',
-      address: '777 Business Center, Chennai',
-      schemeId: 1, // References chitSchemesData[0]
-      startDate: '2024-02-15',
-      amountPerDay: 500,
-      duration: 30,
-      status: 'Active',
-      balance: 40000,
-      documents: ['Aadhar Card', 'Bank Passbook'],
-      group: 'Group A'
-    },
-    {
-      id: 7,
-      name: 'Suresh Kumar',
-      mobile: '9876543216',
-      address: '999 Mall Road, Kolkata',
-      schemeId: 2, // References chitSchemesData[1]
-      startDate: '2024-03-01',
-      amountPerDay: 2500,
-      duration: 200,
-      status: 'Active',
-      balance: 100000,
-      documents: ['Aadhar Card', 'PAN Card', 'Voter ID'],
-      group: 'Group C'
-    },
-    {
-      id: 8,
-      name: 'Meera Joshi',
-      mobile: '9876543217',
-      address: '111 Hill Station, Shimla',
-      schemeId: 3, // References chitSchemesData[2]
-      startDate: '2023-11-01',
-      amountPerDay: 300,
-      duration: 18,
-      status: 'Completed',
-      balance: 0,
-      documents: ['Aadhar Card', 'PAN Card'],
-      group: 'Group B'
-    }
-  ]);
-
+  // Form data state
   const [formData, setFormData] = useState({
     name: '',
     mobile: '',
     address: '',
     schemeId: '',
     startDate: '',
+    lastDate: '',
     amountPerDay: '',
     duration: '',
-    status: 'Active',
+    durationType: 'MONTHS',
     group: 'Group A',
-    documents: []
+    status: 'ACTIVE',
+    photo: ''
   });
+
+  // Fetch data on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        await Promise.all([
+          fetchCustomers(),
+          fetchChitSchemes()
+        ]);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      }
+    };
+
+    loadData();
+  }, [fetchCustomers, fetchChitSchemes]);
+
+  // Fetch customers when filters change
+  useEffect(() => {
+    const params = {};
+    if (searchTerm) params.search = searchTerm;
+    if (statusFilter !== 'all') params.status = statusFilter;
+    if (groupFilter !== 'all') params.group = groupFilter;
+    if (schemeFilter !== 'all') params.schemeId = schemeFilter;
+
+    fetchCustomers(params);
+  }, [searchTerm, statusFilter, groupFilter, schemeFilter, fetchCustomers]);
 
   const groups = ['Group A', 'Group B', 'Group C'];
 
   // Helper function to get scheme name by ID
   const getSchemeName = (schemeId) => {
-    const scheme = chitSchemesData.find(s => s.id === schemeId);
+    const scheme = chitSchemes.find(s => s.id === schemeId);
     return scheme ? scheme.name : 'Unknown Scheme';
   };
 
-  const filteredCustomers = customers.filter(customer => {
-    const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         customer.mobile.includes(searchTerm);
-    const matchesStatus = statusFilter === 'all' || customer.status.toLowerCase() === statusFilter.toLowerCase();
-    const matchesGroup = groupFilter === 'all' || customer.group === groupFilter;
-    const matchesScheme = schemeFilter === 'all' || customer.schemeId.toString() === schemeFilter;
-    return matchesSearch && matchesStatus && matchesGroup && matchesScheme;
-  });
+  // Safe customers array
+  const safeCustomers = Array.isArray(customers) ? customers : [];
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  // Since we're fetching filtered data from API, we can use safeCustomers directly
+  const filteredCustomers = safeCustomers;
+
+  const handleInputChange = async (e) => {
+    const { name, value, type, files } = e.target;
+    
+    if (type === 'file' && name === 'photo') {
+      const file = files[0];
+      if (file) {
+        console.log('File selected:', file);
+        console.log('File type:', file.type);
+        console.log('File size:', file.size);
+        console.log('File name:', file.name);
+        
+        try {
+          // Convert file to Base64 using utility function
+          const base64String = await fileToBase64(file);
+          console.log('Base64 conversion successful');
+          console.log('Base64 starts with:', base64String.substring(0, 50));
+          console.log('Base64 length:', base64String.length);
+          
+          setFormData(prev => ({
+            ...prev,
+            [name]: base64String
+          }));
+        } catch (error) {
+          console.error('Error converting file to Base64:', error);
+        }
+      }
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editingCustomer) {
-      setCustomers(prev => prev.map(customer => 
-        customer.id === editingCustomer.id ? { ...formData, id: editingCustomer.id } : customer
-      ));
-      setEditingCustomer(null);
-    } else {
-      const newCustomer = {
-        ...formData,
-        id: customers.length + 1,
-        balance: formData.amountPerDay * formData.duration
+    try {
+      // Debug: Log the photo data
+      console.log('Photo data:', formData.photo);
+      console.log('Photo type:', typeof formData.photo);
+      console.log('Photo length:', formData.photo?.length);
+      
+      // Skip photo validation for now to test the API
+      console.log('Skipping photo validation for testing');
+
+      // Prepare data for API - only send valid schema fields
+      const dataToSend = {
+        name: formData.name,
+        mobile: formData.mobile,
+        address: formData.address,
+        schemeId: formData.schemeId,
+        startDate: formData.startDate,
+        lastDate: formData.lastDate || null,
+        amountPerDay: parseInt(formData.amountPerDay) || 0,
+        duration: parseInt(formData.duration) || 0,
+        durationType: formData.durationType?.toUpperCase() || 'MONTHS',
+        group: formData.group,
+        status: formData.status,
+        photo: formData.photo || null
       };
-      setCustomers(prev => [...prev, newCustomer]);
+
+      console.log('Form data before conversion:', formData);
+      console.log('Data after conversion:', dataToSend);
+      console.log('Data types:', {
+        amountPerDay: typeof dataToSend.amountPerDay,
+        duration: typeof dataToSend.duration,
+        photo: typeof dataToSend.photo
+      });
+
+      if (editingCustomer) {
+        await updateCustomer(editingCustomer.id, dataToSend);
+        setEditingCustomer(null);
+      } else {
+        await createCustomer(dataToSend);
+      }
+      setShowCreateForm(false);
+      resetForm();
+      setFormData({
+        name: '',
+        mobile: '',
+        address: '',
+        schemeId: '',
+        startDate: '',
+        lastDate: '',
+        amountPerDay: '',
+        duration: '',
+        durationType: 'MONTHS',
+        group: 'Group A',
+        status: 'ACTIVE',
+        photo: ''
+      });
+    } catch (error) {
+      console.error('Error submitting form:', error);
     }
-    setShowAddForm(false);
-    setFormData({
-      name: '',
-      mobile: '',
-      address: '',
-      schemeId: '',
-      startDate: '',
-      amountPerDay: '',
-      duration: '',
-      status: 'Active',
-      group: 'Group A',
-      documents: []
-    });
   };
 
   const handleEdit = (customer) => {
     setEditingCustomer(customer);
-    setFormData(customer);
-    setShowAddForm(true);
+    setFormData({
+      ...customer,
+      durationType: customer.durationType?.toLowerCase() || 'months',
+      photo: customer.photo || ''
+    });
+    setShowCreateForm(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this customer?')) {
-      setCustomers(prev => prev.filter(customer => customer.id !== id));
+      try {
+        await deleteCustomer(id);
+      } catch (error) {
+        console.error('Error deleting customer:', error);
+      }
     }
   };
 
-  const handleViewPassbook = (customer) => {
-    setSelectedCustomerForPassbook(customer);
+  const handleViewPassbook = async (customer) => {
+    setSelectedCustomer(customer);
     setShowPassbookModal(true);
+    
+    // Fetch passbook entries for this customer
+    try {
+      await fetchPassbookEntries(customer.id);
+    } catch (error) {
+      console.error('Error fetching passbook entries:', error);
+    }
   };
 
+  const handlePassbookInputChange = (e) => {
+    const { name, value } = e.target;
+    setPassbookFormData({
+      ...passbookFormData,
+      [name]: value
+    });
+  };
+
+  const handlePassbookSubmit = async (e) => {
+    e.preventDefault();
+    if (selectedCustomer) {
+      try {
+        if (editingPassbookEntry) {
+          await updatePassbookEntry(selectedCustomer.id, passbookFormData);
+        } else {
+          await createPassbookEntry(selectedCustomer.id, passbookFormData);
+        }
+        resetPassbookForm();
+        setEditingPassbookEntry(null);
+        setShowPassbookForm(false);
+      } catch (error) {
+        console.error('Error saving passbook entry:', error);
+      }
+    }
+  };
+
+  const handleDeletePassbookEntry = async (entryId) => {
+    if (window.confirm('Are you sure you want to delete this passbook entry?')) {
+      try {
+        await deletePassbookEntry(entryId);
+      } catch (error) {
+        console.error('Error deleting passbook entry:', error);
+      }
+    }
+  };
+
+  const handleEditPassbookEntry = (entry) => {
+    setEditingPassbookEntry(entry);
+    setPassbookFormData({
+      month: entry.month.toString(),
+      date: new Date(entry.date).toISOString().split('T')[0],
+      dailyPayment: entry.dailyPayment.toString(),
+      amount: entry.amount.toString(),
+      chittiAmount: entry.chittiAmount.toString(),
+      type: entry.type
+    });
+    setShowPassbookForm(true);
+  };
+
+
+
   const getStatusColor = (status) => {
-    switch (status.toLowerCase()) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'completed': return 'bg-blue-100 text-blue-800';
-      case 'defaulted': return 'bg-red-100 text-red-800';
+    if (!status || typeof status !== 'string') return 'bg-gray-100 text-gray-800';
+    
+    switch (status.toUpperCase()) {
+      case 'ACTIVE': return 'bg-green-100 text-green-800';
+      case 'COMPLETED': return 'bg-blue-100 text-blue-800';
+      case 'DEFAULTED': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 h-full overflow-y-auto px-4 py-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Customer Management</h1>
         <button
-          onClick={() => setShowAddForm(true)}
+          onClick={() => setShowCreateForm(true)}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
         >
           + Add New Customer
         </button>
       </div>
+
+      {/* Loading and Error States */}
+      {loading && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+            <span className="text-blue-800">Loading customers...</span>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <svg className="h-5 w-5 text-red-400 mr-2" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            <span className="text-red-800">Error: {error}</span>
+          </div>
+        </div>
+      )}
 
       {/* Search and Filter */}
       <div className="bg-white p-6 rounded-lg shadow-sm border">
@@ -302,9 +351,9 @@ const CustomerManagement = () => {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="completed">Completed</option>
-                <option value="defaulted">Defaulted</option>
+                <option value="ACTIVE">Active</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="DEFAULTED">Defaulted</option>
               </select>
             </div>
             <div className="md:w-48">
@@ -326,7 +375,7 @@ const CustomerManagement = () => {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Schemes</option>
-                {chitSchemesData.map((scheme) => (
+                {chitSchemes.map((scheme) => (
                   <option key={scheme.id} value={scheme.id}>{scheme.name}</option>
                 ))}
               </select>
@@ -349,7 +398,7 @@ const CustomerManagement = () => {
       </div>
 
       {/* Add/Edit Form Modal */}
-      {showAddForm && (
+      {showCreateForm && (
         <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
@@ -393,7 +442,7 @@ const CustomerManagement = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Chit Scheme</label>
                   <select
@@ -404,7 +453,7 @@ const CustomerManagement = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">Select Scheme</option>
-                    {chitSchemesData.map((scheme) => (
+                    {chitSchemes.map((scheme) => (
                       <option key={scheme.id} value={scheme.id}>{scheme.name}</option>
                     ))}
                   </select>
@@ -420,6 +469,18 @@ const CustomerManagement = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
+
+                <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Last Date</label>
+                <input
+                  type="date"
+                  name="lastDate"
+                  value={formData.lastDate}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+                
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -445,14 +506,14 @@ const CustomerManagement = () => {
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="Active">Active</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Defaulted">Defaulted</option>
+                    <option value="ACTIVE">Active</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="DEFAULTED">Defaulted</option>
                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Amount per Day</label>
                   <input
@@ -465,7 +526,7 @@ const CustomerManagement = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration (Days/Months)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
                   <input
                     type="number"
                     name="duration"
@@ -475,25 +536,105 @@ const CustomerManagement = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration Type</label>
+                  <select
+                    name="durationType"
+                    value={formData.durationType}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="MONTHS">Months</option>
+                    <option value="DAYS">Days</option>
+                  </select>
+                </div>
               </div>
+
+              {/* Photo Upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Member Photo</label>
+                
+                {/* Debug button for testing */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    console.log('Current formData.photo:', formData.photo);
+                    console.log('Type:', typeof formData.photo);
+                    if (formData.photo) {
+                      console.log('First 100 chars:', formData.photo.substring(0, 100));
+                    }
+                  }}
+                  className="mb-2 px-2 py-1 text-xs bg-gray-200 rounded"
+                >
+                  Debug Photo Data
+                </button>
+                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-gray-400 transition-colors">
+                  <div className="space-y-1 text-center">
+                    {formData.photo ? (
+                      <div className="space-y-2">
+                        <img
+                          src={formData.photo}
+                          alt="Member photo preview"
+                          className="mx-auto h-32 w-32 object-cover rounded-lg"
+                        />
+                        <p className="text-sm text-gray-600">Photo uploaded</p>
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, photo: null }))}
+                          className="text-sm text-red-600 hover:text-red-500"
+                        >
+                          Remove Photo
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                          <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <div className="flex text-sm text-gray-600">
+                          <label htmlFor="photo-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+                            <span>Upload a photo</span>
+                            <input
+                              id="photo-upload"
+                              name="photo"
+                              type="file"
+                              accept="image/*"
+                              onChange={handleInputChange}
+                              className="sr-only"
+                            />
+                          </label>
+                          <p className="pl-1">or drag and drop</p>
+                        </div>
+                        <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Last Date */}
+           
 
               <div className="flex justify-end space-x-3 pt-4">
                 <button
                   type="button"
                   onClick={() => {
-                    setShowAddForm(false);
+                    setShowCreateForm(false);
                     setEditingCustomer(null);
+                    resetForm();
                     setFormData({
                       name: '',
                       mobile: '',
                       address: '',
                       schemeId: '',
                       startDate: '',
+                      lastDate: '',
                       amountPerDay: '',
                       duration: '',
-                      status: 'Active',
+                      durationType: 'MONTHS',
                       group: 'Group A',
-                      documents: []
+                      status: 'ACTIVE',
+                      photo: ''
                     });
                   }}
                   className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
@@ -513,12 +654,12 @@ const CustomerManagement = () => {
       )}
 
       {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-x-auto">
         {/* Group Statistics */}
         {groups.map((group) => {
-          const groupCustomers = customers.filter(customer => customer.group === group);
-          const activeCustomers = groupCustomers.filter(customer => customer.status === 'Active').length;
-          const totalBalance = groupCustomers.reduce((sum, customer) => sum + customer.balance, 0);
+          const groupCustomers = safeCustomers.filter(customer => customer.group === group);
+          const activeCustomers = groupCustomers.filter(customer => customer.status === 'ACTIVE').length;
+          const totalBalance = groupCustomers.reduce((sum, customer) => sum + (customer.balance || 0), 0);
           
           return (
             <div key={group} className="bg-white p-6 rounded-lg shadow-sm border">
@@ -538,10 +679,10 @@ const CustomerManagement = () => {
         })}
         
         {/* Scheme Statistics */}
-        {chitSchemesData.map((scheme) => {
-          const schemeCustomers = customers.filter(customer => customer.schemeId === scheme.id);
-          const activeCustomers = schemeCustomers.filter(customer => customer.status === 'Active').length;
-          const totalBalance = schemeCustomers.reduce((sum, customer) => sum + customer.balance, 0);
+        {chitSchemes.map((scheme) => {
+          const schemeCustomers = safeCustomers.filter(customer => customer.schemeId === scheme.id);
+          const activeCustomers = schemeCustomers.filter(customer => customer.status === 'ACTIVE').length;
+          const totalBalance = schemeCustomers.reduce((sum, customer) => sum + (customer.balance || 0), 0);
           
           return (
             <div key={scheme.id} className="bg-white p-6 rounded-lg shadow-sm border">
@@ -562,7 +703,7 @@ const CustomerManagement = () => {
       </div>
 
       {/* Members Table */}
-      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+      <div className="bg-white rounded-lg shadow-sm border">
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold text-gray-900">Members</h2>
@@ -582,10 +723,12 @@ const CustomerManagement = () => {
           </div>
         </div>
         <div className="overflow-x-auto">
+          <div className="max-h-96 overflow-y-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">S. No</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Photo</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member ID</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
@@ -593,6 +736,7 @@ const CustomerManagement = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chit Group</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Paid</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pending Due</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Next Due</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
@@ -602,6 +746,21 @@ const CustomerManagement = () => {
                 <tr key={customer.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {index + 1}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {customer.photo ? (
+                      <img
+                        src={customer.photo}
+                        alt={`${customer.name} photo`}
+                        className="h-10 w-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-gray-500 text-xs font-medium">
+                          {customer.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     M{customer.id.toString().padStart(4, '0')}
@@ -624,10 +783,13 @@ const CustomerManagement = () => {
                     {customer.group}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ₹{(customer.amountPerDay * customer.duration - customer.balance).toLocaleString()}
+                    ₹{((customer.amountPerDay || 0) * (customer.duration || 0) - (customer.balance || 0)).toLocaleString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ₹{customer.balance.toLocaleString()}
+                    ₹{(customer.balance || 0).toLocaleString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {customer.lastDate ? new Date(customer.lastDate).toLocaleDateString('en-GB') : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB')}
@@ -652,17 +814,18 @@ const CustomerManagement = () => {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 
       {/* Passbook Modal */}
-      {showPassbookModal && selectedCustomerForPassbook && (
-        <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+      {showPassbookModal && selectedCustomer && (
+        <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[95vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">
-                  Passbook - {selectedCustomerForPassbook.name}
+                  Passbook - {selectedCustomer.name}
                 </h2>
                 <button
                   onClick={() => setShowPassbookModal(false)}
@@ -677,31 +840,174 @@ const CustomerManagement = () => {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div>
                     <span className="text-sm text-gray-600">Customer ID:</span>
-                    <p className="font-medium">M{selectedCustomerForPassbook.id.toString().padStart(4, '0')}</p>
+                    <p className="font-medium">M{selectedCustomer.id.toString().padStart(4, '0')}</p>
                   </div>
                   <div>
                     <span className="text-sm text-gray-600">Phone:</span>
-                    <p className="font-medium">{selectedCustomerForPassbook.mobile}</p>
+                    <p className="font-medium">{selectedCustomer.mobile}</p>
                   </div>
                   <div>
                     <span className="text-sm text-gray-600">Chit Scheme:</span>
-                    <p className="font-medium">{getSchemeName(selectedCustomerForPassbook.schemeId)}</p>
+                    <p className="font-medium">{getSchemeName(selectedCustomer.schemeId)}</p>
                   </div>
                   <div>
                     <span className="text-sm text-gray-600">Status:</span>
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedCustomerForPassbook.status)}`}>
-                      {selectedCustomerForPassbook.status}
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedCustomer.status)}`}>
+                      {selectedCustomer.status}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Payment Schedule Table */}
-              <div className="bg-white rounded-lg shadow-sm border overflow-hidden mb-6">
+              {/* Add Passbook Entry Button */}
+              <div className="mb-6 flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-900">Passbook Entries</h3>
+                <div className="flex space-x-2">
+                  
+                  <button
+                    onClick={() => setShowPassbookForm(true)}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    + Add Manual Entry
+                  </button>
+                </div>
+              </div>
+
+              {/* Passbook Loading and Error States */}
+              {passbookLoading && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                    <span className="text-blue-800">Loading passbook entries...</span>
+                  </div>
+                </div>
+              )}
+
+              {passbookError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <svg className="h-5 w-5 text-red-400 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-red-800">Error: {passbookError}</span>
+                    </div>
+                    <button
+                      onClick={clearPassbookError}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Add Passbook Entry Form Modal */}
+              {showPassbookForm && (
+                <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-60">
+                  <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">
+                      {editingPassbookEntry ? 'Edit Passbook Entry' : 'Add Passbook Entry'}
+                    </h3>
+                    <form onSubmit={handlePassbookSubmit} className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
+                        <input
+                          type="number"
+                          name="month"
+                          value={passbookFormData.month}
+                          onChange={handlePassbookInputChange}
+                          required
+                          min="1"
+                          max="12"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                        <input
+                          type="date"
+                          name="date"
+                          value={passbookFormData.date}
+                          onChange={handlePassbookInputChange}
+                          required
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Daily Payment (₹)</label>
+                        <input
+                          type="number"
+                          name="dailyPayment"
+                          value={passbookFormData.dailyPayment}
+                          onChange={handlePassbookInputChange}
+                          required
+                          min="0"
+                          step="0.01"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹)</label>
+                        <input
+                          type="number"
+                          name="amount"
+                          value={passbookFormData.amount}
+                          onChange={handlePassbookInputChange}
+                          required
+                          min="0"
+                          step="0.01"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Chitti Amount (₹)</label>
+                        <input
+                          type="number"
+                          name="chittiAmount"
+                          value={passbookFormData.chittiAmount}
+                          onChange={handlePassbookInputChange}
+                          required
+                          min="0"
+                          step="0.01"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div className="flex justify-end space-x-3 pt-4">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowPassbookForm(false);
+                            setEditingPassbookEntry(null);
+                            resetPassbookForm();
+                          }}
+                          className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={passbookLoading}
+                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                        >
+                          {passbookLoading 
+                            ? (editingPassbookEntry ? 'Updating...' : 'Adding...') 
+                            : (editingPassbookEntry ? 'Update Entry' : 'Add Entry')
+                          }
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {/* Passbook Entries Table */}
+              <div className="bg-white rounded-lg shadow-sm border mb-6">
                 <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900">Payment Schedule</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Passbook Entries</h3>
                 </div>
                 <div className="overflow-x-auto">
+                  <div className="max-h-80 overflow-y-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
@@ -710,116 +1016,85 @@ const CustomerManagement = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Daily Payment</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chitti Amount</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {Array.from({ length: Math.min(selectedCustomerForPassbook.duration, 10) }, (_, index) => {
-                        const month = index + 1;
-                        const dailyPayment = selectedCustomerForPassbook.amountPerDay;
-                        const amount = dailyPayment * 30; // Assuming 30 days per month
-                        const chittiAmount = 500000 + (Math.floor(month / 2) * 10000);
-                        
-                        // Calculate date based on start date
-                        const startDate = new Date(selectedCustomerForPassbook.startDate);
-                        const monthDate = new Date(startDate);
-                        monthDate.setMonth(startDate.getMonth() + index);
-                        
-                        return (
-                          <tr key={month} className="hover:bg-gray-50">
+                      {passbookEntries && passbookEntries.length > 0 ? (
+                        passbookEntries.map((entry) => (
+                          <tr key={entry.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {month}
+                              {entry.month}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {monthDate.toLocaleDateString('en-GB')}
+                              {new Date(entry.date).toLocaleDateString('en-GB')}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              ₹{dailyPayment.toLocaleString()}
+                              ₹{entry.dailyPayment.toLocaleString()}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              ₹{amount.toLocaleString()}
+                              ₹{entry.amount.toLocaleString()}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              ₹{chittiAmount.toLocaleString()}
+                              ₹{entry.chittiAmount.toLocaleString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                entry.type === 'GENERATED' 
+                                  ? 'bg-blue-100 text-blue-800' 
+                                  : 'bg-green-100 text-green-800'
+                              }`}>
+                                {entry.type}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              {entry.type === 'MANUAL' ? (
+                                <div className="flex space-x-2">
+                                  <button
+                                    onClick={() => handleEditPassbookEntry(entry)}
+                                    className="text-blue-600 hover:text-blue-900"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeletePassbookEntry(entry.id)}
+                                    className="text-red-600 hover:text-red-900"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-gray-500">-</span>
+                              )}
                             </td>
                           </tr>
-                        );
-                      })}
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                            {passbookLoading ? (
+                              <div className="flex items-center justify-center">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                                Loading entries...
+                              </div>
+                            ) : (
+                              <div className="text-center">
+                                <p className="text-gray-500 mb-2">No passbook entries found.</p>
+                                <p className="text-sm text-gray-400">Click "Add Manual Entry" to create custom entries.</p>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               </div>
 
               {/* Passbook Entries */}
-              <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900">Passbook Entries</h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount Paid</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Collector</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Signature</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {/* Sample passbook entries for this customer */}
-                      {(() => {
-                        const startDate = new Date(selectedCustomerForPassbook.startDate);
-                        const entries = [];
-                        
-                        // Generate entries for the last 10 days
-                        for (let i = 0; i < 10; i++) {
-                          const entryDate = new Date(startDate);
-                          entryDate.setDate(startDate.getDate() + i);
-                          
-                          entries.push({
-                            id: i + 1,
-                            date: entryDate.toISOString().split('T')[0],
-                            amountPaid: selectedCustomerForPassbook.amountPerDay,
-                            balance: selectedCustomerForPassbook.balance + (i * selectedCustomerForPassbook.amountPerDay),
-                            paymentMethod: i % 3 === 0 ? 'Cash' : i % 3 === 1 ? 'UPI' : 'Bank Transfer',
-                            collectorName: i % 2 === 0 ? 'Amit Singh' : 'Priya Sharma',
-                            signature: i < 8 ? 'Approved' : i === 8 ? 'Pending' : 'Rejected'
-                          });
-                        }
-                        
-                        return entries;
-                      })().map((entry) => (
-                        <tr key={entry.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {new Date(entry.date).toLocaleDateString()}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ₹{entry.amountPaid.toLocaleString()}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ₹{entry.balance.toLocaleString()}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {entry.paymentMethod}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {entry.collectorName}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`text-sm font-medium ${
-                              entry.signature === 'Approved' ? 'text-green-600' : 
-                              entry.signature === 'Pending' ? 'text-yellow-600' : 'text-red-600'
-                            }`}>
-                              {entry.signature}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+             
 
               {/* Print Options */}
               <div className="mt-6 flex justify-end space-x-4">

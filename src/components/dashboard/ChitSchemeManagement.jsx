@@ -1,80 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useChitSchemeStore } from '../../stores/chitSchemeStore';
 
 const ChitSchemeManagement = () => {
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingScheme, setEditingScheme] = useState(null);
-  const [showMembersModal, setShowMembersModal] = useState(false);
-  const [selectedScheme, setSelectedScheme] = useState(null);
-
-  // Static chit schemes data
-  const [schemes, setSchemes] = useState([
-    {
-      id: 1,
-      name: '₹5,00,000 - 30 months',
-      chitValue: 500000,
-      duration: 30,
-      durationType: 'months',
-      dailyPayment: 500,
-      monthlyPayment: 15000,
-      numberOfMembers: 30,
-      auctionRules: 'Before lifting: ₹500 daily, After lifting: ₹500 daily',
-      status: 'Active',
-      membersEnrolled: 25,
-      startDate: '2024-01-01',
-      endDate: '2026-07-01'
-    },
-    {
-      id: 2,
-      name: '₹5,00,000 - 200 days',
-      chitValue: 500000,
-      duration: 200,
-      durationType: 'days',
-      dailyPayment: 2500,
-      monthlyPayment: 75000,
-      numberOfMembers: 20,
-      auctionRules: 'Before lifting: ₹2500 daily, After lifting: ₹3000 daily',
-      status: 'Active',
-      membersEnrolled: 18,
-      startDate: '2024-02-01',
-      endDate: '2024-08-19'
-    },
-    {
-      id: 3,
-      name: '₹3,00,000 - 18 months',
-      chitValue: 300000,
-      duration: 18,
-      durationType: 'months',
-      dailyPayment: 300,
-      monthlyPayment: 9000,
-      numberOfMembers: 25,
-      auctionRules: 'Before lifting: ₹300 daily, After lifting: ₹300 daily',
-      status: 'Completed',
-      membersEnrolled: 25,
-      startDate: '2023-01-01',
-      endDate: '2024-07-01'
-    }
-  ]);
-
-  // Static members data for each scheme
-  const schemeMembers = {
-    1: [ // ₹5,00,000 - 30 months
-      { id: 1, name: 'Rajesh Kumar', mobile: '9876543210', group: 'Group A', status: 'Active', amountPaid: 15000, balance: 45000, joinDate: '2024-01-15' },
-      { id: 2, name: 'Amit Singh', mobile: '9876543212', group: 'Group A', status: 'Completed', amountPaid: 15000, balance: 0, joinDate: '2023-12-01' },
-      { id: 3, name: 'Anita Gupta', mobile: '9876543215', group: 'Group A', status: 'Active', amountPaid: 10000, balance: 40000, joinDate: '2024-02-15' },
-      { id: 4, name: 'Vikram Reddy', mobile: '9876543214', group: 'Group B', status: 'Active', amountPaid: 8100, balance: 27000, joinDate: '2024-01-01' },
-      { id: 5, name: 'Suresh Kumar', mobile: '9876543216', group: 'Group C', status: 'Active', amountPaid: 5000, balance: 100000, joinDate: '2024-03-01' }
-    ],
-    2: [ // ₹5,00,000 - 200 days
-      { id: 6, name: 'Priya Sharma', mobile: '9876543211', group: 'Group B', status: 'Active', amountPaid: 50000, balance: 125000, joinDate: '2024-02-01' },
-      { id: 7, name: 'Sunita Patel', mobile: '9876543213', group: 'Group C', status: 'Defaulted', amountPaid: 60000, balance: 180000, joinDate: '2024-03-15' },
-      { id: 8, name: 'Meera Joshi', mobile: '9876543217', group: 'Group B', status: 'Completed', amountPaid: 54000, balance: 0, joinDate: '2023-11-01' }
-    ],
-    3: [ // ₹3,00,000 - 18 months
-      { id: 9, name: 'Deepak Verma', mobile: '9876543218', group: 'Group A', status: 'Active', amountPaid: 9000, balance: 45000, joinDate: '2024-01-01' },
-      { id: 10, name: 'Ravi Kumar', mobile: '9876543219', group: 'Group B', status: 'Active', amountPaid: 12000, balance: 42000, joinDate: '2024-02-01' },
-      { id: 11, name: 'Sita Devi', mobile: '9876543220', group: 'Group C', status: 'Active', amountPaid: 15000, balance: 39000, joinDate: '2024-03-01' }
-    ]
-  };
+  // Zustand store
+  const {
+    schemes,
+    loading,
+    error,
+    selectedScheme,
+    showCreateForm,
+    editingScheme,
+    showMembersModal,
+    fetchSchemes,
+    createScheme,
+    updateScheme,
+    deleteScheme,
+    setShowCreateForm,
+    setEditingScheme,
+    setShowMembersModal,
+    setSelectedScheme,
+    resetForm
+  } = useChitSchemeStore();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -85,9 +31,25 @@ const ChitSchemeManagement = () => {
     monthlyPayment: '',
     numberOfMembers: '',
     auctionRules: '',
-    status: 'Active',
-    startDate: new Date().toISOString().split('T')[0]
+    status: 'ACTIVE',
+    startDate: new Date().toISOString().split('T')[0],
+    lastDate: ''
   });
+
+  // Fetch schemes on component mount
+  useEffect(() => {
+    const loadSchemes = async () => {
+      try {
+        await fetchSchemes();
+      } catch (error) {
+        console.error('Error loading schemes:', error);
+      }
+    };
+    loadSchemes();
+  }, [fetchSchemes]);
+
+  // Ensure schemes is always an array
+  const safeSchemes = Array.isArray(schemes) ? schemes : [];
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -97,57 +59,73 @@ const ChitSchemeManagement = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editingScheme) {
-      setSchemes(prev => prev.map(scheme => 
-        scheme.id === editingScheme.id ? { ...formData, id: editingScheme.id } : scheme
-      ));
-      setEditingScheme(null);
-    } else {
-      const newScheme = {
+    try {
+      const schemeData = {
         ...formData,
-        id: schemes.length + 1,
-        membersEnrolled: 0,
-        startDate: formData.startDate || new Date().toISOString().split('T')[0],
-        endDate: calculateEndDate(formData.startDate || new Date().toISOString().split('T')[0], formData.duration, formData.durationType)
+        chitValue: parseInt(formData.chitValue),
+        duration: parseInt(formData.duration),
+        durationType: formData.durationType.toUpperCase(), // Convert to uppercase
+        dailyPayment: parseInt(formData.dailyPayment),
+        monthlyPayment: parseInt(formData.monthlyPayment),
+        numberOfMembers: parseInt(formData.numberOfMembers),
+        startDate: formData.startDate,
+        lastDate: formData.lastDate || null,
+        status: formData.status
       };
-      setSchemes(prev => [...prev, newScheme]);
+
+      if (editingScheme) {
+        await updateScheme(editingScheme.id, schemeData);
+      } else {
+        await createScheme(schemeData);
+      }
+      
+      resetForm();
+      setFormData({
+        name: '',
+        chitValue: '',
+        duration: '',
+        durationType: 'months',
+        dailyPayment: '',
+        monthlyPayment: '',
+        numberOfMembers: '',
+        auctionRules: '',
+        status: 'ACTIVE',
+        startDate: new Date().toISOString().split('T')[0],
+        lastDate: ''
+      });
+    } catch (error) {
+      console.error('Error saving scheme:', error);
     }
-    setShowCreateForm(false);
-    setFormData({
-      name: '',
-      chitValue: '',
-      duration: '',
-      durationType: 'months',
-      dailyPayment: '',
-      monthlyPayment: '',
-      numberOfMembers: '',
-      auctionRules: '',
-      status: 'Active',
-      startDate: new Date().toISOString().split('T')[0]
-    });
   };
 
-  const calculateEndDate = (startDate, duration, durationType) => {
-    const start = new Date(startDate);
-    if (durationType === 'months') {
-      start.setMonth(start.getMonth() + parseInt(duration));
-    } else {
-      start.setDate(start.getDate() + parseInt(duration));
-    }
-    return start.toISOString().split('T')[0];
-  };
 
   const handleEdit = (scheme) => {
     setEditingScheme(scheme);
-    setFormData(scheme);
+    setFormData({
+      name: scheme.name,
+      chitValue: scheme.chitValue.toString(),
+      duration: scheme.duration.toString(),
+      durationType: scheme.durationType ? scheme.durationType.toLowerCase() : 'months',
+      dailyPayment: scheme.dailyPayment.toString(),
+      monthlyPayment: scheme.monthlyPayment.toString(),
+      numberOfMembers: scheme.numberOfMembers.toString(),
+      auctionRules: scheme.auctionRules || '',
+      status: scheme.status,
+      startDate: scheme.startDate ? new Date(scheme.startDate).toISOString().split('T')[0] : '',
+      lastDate: scheme.lastDate ? new Date(scheme.lastDate).toISOString().split('T')[0] : ''
+    });
     setShowCreateForm(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this chit scheme?')) {
-      setSchemes(prev => prev.filter(scheme => scheme.id !== id));
+      try {
+        await deleteScheme(id);
+      } catch (error) {
+        console.error('Error deleting scheme:', error);
+      }
     }
   };
 
@@ -157,6 +135,9 @@ const ChitSchemeManagement = () => {
   };
 
   const getStatusColor = (status) => {
+    if (!status || typeof status !== 'string') {
+      return 'bg-gray-100 text-gray-800';
+    }
     switch (status.toLowerCase()) {
       case 'active': return 'bg-green-100 text-green-800';
       case 'completed': return 'bg-blue-100 text-blue-800';
@@ -166,17 +147,10 @@ const ChitSchemeManagement = () => {
   };
 
   const getProgressPercentage = (enrolled, total) => {
+    if (!enrolled || !total || total === 0) return 0;
     return Math.round((enrolled / total) * 100);
   };
 
-  const getMemberStatusColor = (status) => {
-    switch (status.toLowerCase()) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'completed': return 'bg-blue-100 text-blue-800';
-      case 'defaulted': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -190,6 +164,21 @@ const ChitSchemeManagement = () => {
           + Create New Scheme
         </button>
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          {error}
+        </div>
+      )}
+
+      {/* Loading State */}
+      {loading && (
+        <div className="flex justify-center items-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-2 text-gray-600">Loading...</span>
+        </div>
+      )}
 
       {/* Predefined Schemes */}
       <div className="bg-white p-6 rounded-lg shadow-sm border">
@@ -268,7 +257,7 @@ const ChitSchemeManagement = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                   <input
@@ -281,6 +270,16 @@ const ChitSchemeManagement = () => {
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Date</label>
+                  <input
+                    type="date"
+                    name="lastDate"
+                    value={formData.lastDate}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                   <select
                     name="status"
@@ -288,9 +287,9 @@ const ChitSchemeManagement = () => {
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="Active">Active</option>
-                    <option value="Paused">Paused</option>
-                    <option value="Completed">Completed</option>
+                    <option value="ACTIVE">Active</option>
+                    <option value="PAUSED">Paused</option>
+                    <option value="COMPLETED">Completed</option>
                   </select>
                 </div>
               </div>
@@ -361,8 +360,7 @@ const ChitSchemeManagement = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setShowCreateForm(false);
-                    setEditingScheme(null);
+                    resetForm();
                     setFormData({
                       name: '',
                       chitValue: '',
@@ -372,8 +370,9 @@ const ChitSchemeManagement = () => {
                       monthlyPayment: '',
                       numberOfMembers: '',
                       auctionRules: '',
-                      status: 'Active',
-                      startDate: new Date().toISOString().split('T')[0]
+                      status: 'ACTIVE',
+                      startDate: new Date().toISOString().split('T')[0],
+                      lastDate: ''
                     });
                   }}
                   className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
@@ -402,6 +401,7 @@ const ChitSchemeManagement = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Daily Payment</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Members</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -409,7 +409,14 @@ const ChitSchemeManagement = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {schemes.map((scheme) => (
+              {safeSchemes.length === 0 ? (
+                <tr>
+                  <td colSpan="9" className="px-6 py-4 text-center text-sm text-gray-500">
+                    {loading ? 'Loading schemes...' : 'No chit schemes found. Create your first scheme!'}
+                  </td>
+                </tr>
+              ) : (
+                safeSchemes.map((scheme) => (
                 <tr key={scheme.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
@@ -423,16 +430,19 @@ const ChitSchemeManagement = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ₹{scheme.chitValue.toLocaleString()}
+                    ₹{(scheme.chitValue || 0).toLocaleString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {scheme.duration} {scheme.durationType}
+                    {scheme.duration || 0} {scheme.durationType ? scheme.durationType.toLowerCase() : 'months'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ₹{scheme.dailyPayment.toLocaleString()}
+                    ₹{(scheme.dailyPayment || 0).toLocaleString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {scheme.membersEnrolled}/{scheme.numberOfMembers}
+                    {scheme.lastDate ? new Date(scheme.lastDate).toLocaleDateString('en-GB') : '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {scheme.membersEnrolled || 0}/{scheme.numberOfMembers || 0}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -449,7 +459,7 @@ const ChitSchemeManagement = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(scheme.status)}`}>
-                      {scheme.status}
+                      {scheme.status || 'Unknown'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -469,7 +479,8 @@ const ChitSchemeManagement = () => {
                     </div>
                   </td>
                 </tr>
-              ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -501,30 +512,30 @@ const ChitSchemeManagement = () => {
                   </div>
                   <div>
                     <span className="text-sm text-gray-600">Chit Value:</span>
-                    <p className="font-medium">₹{selectedScheme.chitValue.toLocaleString()}</p>
+                    <p className="font-medium">₹{(selectedScheme.chitValue || 0).toLocaleString()}</p>
                   </div>
                   <div>
                     <span className="text-sm text-gray-600">Duration:</span>
-                    <p className="font-medium">{selectedScheme.duration} {selectedScheme.durationType}</p>
+                    <p className="font-medium">{selectedScheme.duration || 0} {selectedScheme.durationType ? selectedScheme.durationType.toLowerCase() : 'months'}</p>
                   </div>
                   <div>
                     <span className="text-sm text-gray-600">Daily Payment:</span>
-                    <p className="font-medium">₹{selectedScheme.dailyPayment.toLocaleString()}</p>
+                    <p className="font-medium">₹{(selectedScheme.dailyPayment || 0).toLocaleString()}</p>
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <span className="text-sm text-gray-600">Total Members:</span>
-                    <p className="font-medium">{selectedScheme.numberOfMembers}</p>
+                    <p className="font-medium">{selectedScheme.numberOfMembers || 0}</p>
                   </div>
                   <div>
                     <span className="text-sm text-gray-600">Enrolled:</span>
-                    <p className="font-medium">{selectedScheme.membersEnrolled}</p>
+                    <p className="font-medium">{selectedScheme.membersEnrolled || 0}</p>
                   </div>
                   <div>
                     <span className="text-sm text-gray-600">Status:</span>
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedScheme.status)}`}>
-                      {selectedScheme.status}
+                      {selectedScheme.status || 'Unknown'}
                     </span>
                   </div>
                 </div>
@@ -551,77 +562,37 @@ const ChitSchemeManagement = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {schemeMembers[selectedScheme.id]?.map((member, index) => (
-                        <tr key={member.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {index + 1}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            M{member.id.toString().padStart(4, '0')}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {member.name}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {member.mobile}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {member.group}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {new Date(member.joinDate).toLocaleDateString()}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ₹{member.amountPaid.toLocaleString()}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ₹{member.balance.toLocaleString()}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getMemberStatusColor(member.status)}`}>
-                              {member.status}
-                            </span>
-                          </td>
-                        </tr>
-                      )) || (
-                        <tr>
-                          <td colSpan="9" className="px-6 py-4 text-center text-sm text-gray-500">
-                            No members enrolled in this scheme yet.
-                          </td>
-                        </tr>
-                      )}
+                      <tr>
+                        <td colSpan="9" className="px-6 py-4 text-center text-sm text-gray-500">
+                          Member management will be integrated with the Customer Management API.
+                          <br />
+                          <span className="text-blue-600">Coming soon...</span>
+                        </td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
               </div>
 
               {/* Summary Statistics */}
-              {schemeMembers[selectedScheme.id] && (
-                <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <div className="text-sm text-blue-600">Total Members</div>
-                    <div className="text-2xl font-bold text-blue-900">{schemeMembers[selectedScheme.id].length}</div>
-                  </div>
-                  <div className="bg-green-50 p-4 rounded-lg">
-                    <div className="text-sm text-green-600">Active Members</div>
-                    <div className="text-2xl font-bold text-green-900">
-                      {schemeMembers[selectedScheme.id].filter(m => m.status === 'Active').length}
-                    </div>
-                  </div>
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <div className="text-sm text-blue-600">Completed</div>
-                    <div className="text-2xl font-bold text-blue-900">
-                      {schemeMembers[selectedScheme.id].filter(m => m.status === 'Completed').length}
-                    </div>
-                  </div>
-                  <div className="bg-red-50 p-4 rounded-lg">
-                    <div className="text-sm text-red-600">Defaulted</div>
-                    <div className="text-2xl font-bold text-red-900">
-                      {schemeMembers[selectedScheme.id].filter(m => m.status === 'Defaulted').length}
-                    </div>
-                  </div>
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="text-sm text-blue-600">Total Members</div>
+                  <div className="text-2xl font-bold text-blue-900">-</div>
                 </div>
-              )}
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <div className="text-sm text-green-600">Active Members</div>
+                  <div className="text-2xl font-bold text-green-900">-</div>
+                </div>
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="text-sm text-blue-600">Completed</div>
+                  <div className="text-2xl font-bold text-blue-900">-</div>
+                </div>
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <div className="text-sm text-red-600">Defaulted</div>
+                  <div className="text-2xl font-bold text-red-900">-</div>
+                </div>
+              </div>
 
               {/* Action Buttons */}
               <div className="mt-6 flex justify-end space-x-4">

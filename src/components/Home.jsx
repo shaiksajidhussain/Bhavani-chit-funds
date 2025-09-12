@@ -12,7 +12,7 @@ import ContactForm from './ContactForm';
 import Footer from './Footer';
 import FloatingElements from './FloatingElements';
 
-const Home = () => {
+const Home = ({ onShowLogin }) => {
   const [selectedScheme, setSelectedScheme] = useState(null);
 
   const handleSchemeSelect = (scheme) => {
@@ -21,7 +21,7 @@ const Home = () => {
 
   return (
     <div className="min-h-screen">
-      <Navbar />
+      <Navbar onShowLogin={onShowLogin} />
       <Hero />
       <FeatureGrid />
       <HowItWorks />

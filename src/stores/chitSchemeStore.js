@@ -1,0 +1,206 @@
+import { create } from 'zustand';
+
+const API_BASE_URL = 'http://localhost:5001/api';
+
+export const useChitSchemeStore = create((set) => ({
+  // State
+  schemes: [],
+  loading: false,
+  error: null,
+  selectedScheme: null,
+  showCreateForm: false,
+  editingScheme: null,
+  showMembersModal: false,
+
+  // Actions
+  setLoading: (loading) => set({ loading }),
+  setError: (error) => set({ error }),
+  setSelectedScheme: (scheme) => set({ selectedScheme: scheme }),
+  setShowCreateForm: (show) => set({ showCreateForm: show }),
+  setEditingScheme: (scheme) => set({ editingScheme: scheme }),
+  setShowMembersModal: (show) => set({ showMembersModal: show }),
+
+  // Fetch all chit schemes
+  fetchSchemes: async () => {
+    set({ loading: true, error: null });
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/chit-schemes`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch chit schemes');
+      }
+
+      const responseData = await response.json();
+      // Handle nested response structure: { success: true, data: { schemes: [...] } }
+      const schemes = responseData.data?.schemes || responseData.schemes || responseData;
+      set({ schemes: Array.isArray(schemes) ? schemes : [], loading: false });
+    } catch (error) {
+      set({ error: error.message, loading: false });
+    }
+  },
+
+  // Create new chit scheme
+  createScheme: async (schemeData) => {
+    set({ loading: true, error: null });
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/chit-schemes`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(schemeData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create chit scheme');
+      }
+
+      const responseData = await response.json();
+      // Handle nested response structure: { success: true, data: { ... } }
+      const newScheme = responseData.data || responseData;
+      set((state) => ({
+        schemes: [...(Array.isArray(state.schemes) ? state.schemes : []), newScheme],
+        loading: false,
+        showCreateForm: false,
+        editingScheme: null,
+      }));
+      return newScheme;
+    } catch (error) {
+      set({ error: error.message, loading: false });
+      throw error;
+    }
+  },
+
+  // Update chit scheme
+  updateScheme: async (id, schemeData) => {
+    set({ loading: true, error: null });
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/chit-schemes/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(schemeData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update chit scheme');
+      }
+
+      const responseData = await response.json();
+      // Handle nested response structure: { success: true, data: { ... } }
+      const updatedScheme = responseData.data || responseData;
+      set((state) => ({
+        schemes: Array.isArray(state.schemes) ? state.schemes.map(scheme => 
+          scheme.id === id ? updatedScheme : scheme
+        ) : [],
+        loading: false,
+        showCreateForm: false,
+        editingScheme: null,
+      }));
+      return updatedScheme;
+    } catch (error) {
+      set({ error: error.message, loading: false });
+      throw error;
+    }
+  },
+
+  // Delete chit scheme
+  deleteScheme: async (id) => {
+    set({ loading: true, error: null });
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/chit-schemes/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete chit scheme');
+      }
+
+      set((state) => ({
+        schemes: Array.isArray(state.schemes) ? state.schemes.filter(scheme => scheme.id !== id) : [],
+        loading: false,
+      }));
+    } catch (error) {
+      set({ error: error.message, loading: false });
+      throw error;
+    }
+  },
+
+  // Get chit scheme by ID
+  fetchSchemeById: async (id) => {
+    set({ loading: true, error: null });
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/chit-schemes/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch chit scheme');
+      }
+
+      const responseData = await response.json();
+      // Handle nested response structure: { success: true, data: { ... } }
+      const scheme = responseData.data || responseData;
+      set({ selectedScheme: scheme, loading: false });
+      return scheme;
+    } catch (error) {
+      set({ error: error.message, loading: false });
+      throw error;
+    }
+  },
+
+  // Get scheme statistics
+  fetchSchemeStats: async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/chit-schemes/stats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch scheme statistics');
+      }
+
+      return await response.json();
+    } catch (error) {
+      set({ error: error.message });
+      throw error;
+    }
+  },
+
+  // Reset form data
+  resetForm: () => {
+    set({
+      editingScheme: null,
+      showCreateForm: false,
+      selectedScheme: null,
+      showMembersModal: false,
+    });
+  },
+}));

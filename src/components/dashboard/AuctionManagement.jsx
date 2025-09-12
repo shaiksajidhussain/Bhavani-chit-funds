@@ -1,138 +1,160 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import useAuctionStore from '../../stores/auctionStore';
 
 const AuctionManagement = () => {
-  const [showAuctionForm, setShowAuctionForm] = useState(false);
-  const [editingAuction, setEditingAuction] = useState(null);
+  const {
+    auctions,
+    chitSchemes,
+    members,
+    loading,
+    error,
+    showCreateForm,
+    editingAuction,
+    formData,
+    setShowCreateForm,
+    setEditingAuction,
+    setFormData,
+    resetForm,
+    clearError,
+    fetchAuctions,
+    fetchChitSchemes,
+    fetchMembers,
+    createAuction,
+    updateAuction,
+    deleteAuction
+  } = useAuctionStore();
+
   const [selectedScheme, setSelectedScheme] = useState('all');
 
-  // Static auction data
-  const [auctions, setAuctions] = useState([
-    {
-      id: 1,
-      chitScheme: '₹5,00,000 - 30 months',
-      chitValue: 500000,
-      auctionDate: '2024-12-10',
-      winningMember: 'Rajesh Kumar',
-      memberId: 'C001',
-      amountReceived: 500000,
-      discountAmount: 0,
-      newDailyPayment: 500,
-      previousDailyPayment: 500,
-      status: 'Completed',
-      remarks: 'Full amount received'
-    },
-    {
-      id: 2,
-      chitScheme: '₹5,00,000 - 200 days',
-      chitValue: 500000,
-      auctionDate: '2024-12-08',
-      winningMember: 'Priya Sharma',
-      memberId: 'C002',
-      amountReceived: 450000,
-      discountAmount: 50000,
-      newDailyPayment: 3000,
-      previousDailyPayment: 2500,
-      status: 'Completed',
-      remarks: '₹50,000 discount applied'
-    },
-    {
-      id: 3,
-      chitScheme: '₹5,00,000 - 30 months',
-      chitValue: 500000,
-      auctionDate: '2024-12-15',
-      winningMember: 'Amit Singh',
-      memberId: 'C003',
-      amountReceived: 0,
-      discountAmount: 0,
-      newDailyPayment: 500,
-      previousDailyPayment: 500,
-      status: 'Scheduled',
-      remarks: 'Upcoming auction'
-    }
-  ]);
+  // Load data on component mount
+  useEffect(() => {
+    fetchAuctions();
+    fetchChitSchemes();
+    fetchMembers();
+  }, [fetchAuctions, fetchChitSchemes, fetchMembers]);
 
-  const [formData, setFormData] = useState({
-    chitScheme: '',
-    chitValue: '',
-    auctionDate: '',
-    winningMember: '',
-    memberId: '',
-    amountReceived: '',
-    discountAmount: '',
-    newDailyPayment: '',
-    previousDailyPayment: '',
-    status: 'Scheduled',
-    remarks: ''
-  });
+  // Debug form data changes
+  useEffect(() => {
+    console.log('Form data changed:', formData);
+    console.log('Form data type:', typeof formData);
+    console.log('Form data is object:', formData && typeof formData === 'object');
+    console.log('Form data keys:', formData && typeof formData === 'object' ? Object.keys(formData) : 'Not an object');
+  }, [formData]);
 
-  const chitSchemes = [
-    '₹5,00,000 - 30 months',
-    '₹5,00,000 - 200 days',
-    '₹3,00,000 - 18 months'
-  ];
+  // Debug loaded data
+  useEffect(() => {
+    console.log('Chit schemes loaded:', chitSchemes);
+    console.log('Members loaded:', members);
+  }, [chitSchemes, members]);
 
-  const members = [
-    { id: 'C001', name: 'Rajesh Kumar' },
-    { id: 'C002', name: 'Priya Sharma' },
-    { id: 'C003', name: 'Amit Singh' },
-    { id: 'C004', name: 'Sunita Patel' }
-  ];
-
+  // Filter auctions based on selected scheme
   const filteredAuctions = selectedScheme === 'all' 
     ? auctions 
-    : auctions.filter(auction => auction.chitScheme === selectedScheme);
+    : auctions.filter(auction => auction.chitScheme?.id === selectedScheme);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    console.log('Input change:', name, value);
+    
+    // Get current form data from store
+    const currentFormData = useAuctionStore.getState().formData;
+    
+    // Auto-populate member ID when member is selected
+    if (name === 'winningMemberId') {
+      const selectedMember = members.find(member => member.id === value);
+      console.log('Selected member:', selectedMember);
+      const newData = {
+        ...currentFormData,
+        [name]: value,
+        memberId: selectedMember?.id || ''
+      };
+      console.log('Updated form data:', newData);
+      setFormData(newData);
+    } 
+    // Auto-populate chit value when scheme is selected
+    else if (name === 'chitSchemeId') {
+      const selectedScheme = chitSchemes.find(scheme => scheme.id === value);
+      console.log('Selected scheme:', selectedScheme);
+      const newData = {
+        ...currentFormData,
+        [name]: value,
+        chitValue: selectedScheme?.chitValue || ''
+      };
+      console.log('Updated form data:', newData);
+      setFormData(newData);
+    } 
+    else {
+      const newData = {
+        ...currentFormData,
+        [name]: value
+      };
+      console.log('Updated form data:', newData);
+      setFormData(newData);
+    }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editingAuction) {
-      setAuctions(prev => prev.map(auction => 
-        auction.id === editingAuction.id ? { ...formData, id: editingAuction.id } : auction
-      ));
-      setEditingAuction(null);
-    } else {
-      const newAuction = {
-        ...formData,
-        id: auctions.length + 1,
-        amountReceived: parseInt(formData.amountReceived) || 0,
-        discountAmount: parseInt(formData.discountAmount) || 0,
-        newDailyPayment: parseInt(formData.newDailyPayment) || 0,
-        previousDailyPayment: parseInt(formData.previousDailyPayment) || 0
-      };
-      setAuctions(prev => [...prev, newAuction]);
+    
+    // Get the current form data from the store
+    const currentFormData = useAuctionStore.getState().formData;
+    console.log('Form data before submission:', currentFormData);
+    console.log('Form data keys:', Object.keys(currentFormData));
+    console.log('Form data values:', Object.values(currentFormData));
+    console.log('Chit schemes available:', chitSchemes);
+    console.log('Members available:', members);
+    
+    // Check if form data is empty
+    if (!currentFormData.chitSchemeId) {
+      alert('Please select a chit scheme');
+      return;
     }
-    setShowAuctionForm(false);
-    setFormData({
-      chitScheme: '',
-      chitValue: '',
-      auctionDate: '',
-      winningMember: '',
-      memberId: '',
-      amountReceived: '',
-      discountAmount: '',
-      newDailyPayment: '',
-      previousDailyPayment: '',
-      status: 'Scheduled',
-      remarks: ''
-    });
+    if (!currentFormData.auctionDate) {
+      alert('Please select an auction date');
+      return;
+    }
+    
+    try {
+      if (editingAuction) {
+        await updateAuction(editingAuction.id, currentFormData);
+        setEditingAuction(null);
+      } else {
+        await createAuction(currentFormData);
+      }
+      setShowCreateForm(false);
+      resetForm();
+    } catch (error) {
+      console.error('Error submitting auction:', error);
+      // Error is handled by the store
+    }
   };
 
   const handleEdit = (auction) => {
     setEditingAuction(auction);
-    setFormData(auction);
-    setShowAuctionForm(true);
+    setFormData({
+      chitSchemeId: auction.chitSchemeId || '',
+      chitValue: auction.chitScheme?.chitValue || '',
+      auctionDate: auction.auctionDate ? new Date(auction.auctionDate).toISOString().split('T')[0] : '',
+      winningMemberId: auction.winningMemberId || '',
+      memberId: auction.winningMember?.id || '',
+      amountReceived: auction.amountReceived || '',
+      discountAmount: auction.discountAmount || '',
+      newDailyPayment: auction.newDailyPayment || '',
+      previousDailyPayment: auction.previousDailyPayment || '',
+      status: auction.status || 'SCHEDULED',
+      remarks: auction.remarks || ''
+    });
+    setShowCreateForm(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this auction record?')) {
-      setAuctions(prev => prev.filter(auction => auction.id !== id));
+      try {
+        await deleteAuction(id);
+      } catch (error) {
+        console.error('Error deleting auction:', error);
+        // Error is handled by the store
+      }
     }
   };
 
@@ -148,17 +170,18 @@ const AuctionManagement = () => {
   const getSchemeStats = () => {
     const stats = {};
     auctions.forEach(auction => {
-      if (!stats[auction.chitScheme]) {
-        stats[auction.chitScheme] = {
+      const schemeName = auction.chitScheme?.name || 'Unknown Scheme';
+      if (!stats[schemeName]) {
+        stats[schemeName] = {
           totalAuctions: 0,
           completedAuctions: 0,
           totalAmount: 0
         };
       }
-      stats[auction.chitScheme].totalAuctions++;
-      if (auction.status === 'Completed') {
-        stats[auction.chitScheme].completedAuctions++;
-        stats[auction.chitScheme].totalAmount += auction.amountReceived;
+      stats[schemeName].totalAuctions++;
+      if (auction.status === 'COMPLETED') {
+        stats[schemeName].completedAuctions++;
+        stats[schemeName].totalAmount += auction.amountReceived || 0;
       }
     });
     return stats;
@@ -172,12 +195,30 @@ const AuctionManagement = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Auction & Lifting Management</h1>
         <button
-          onClick={() => setShowAuctionForm(true)}
+          onClick={() => {
+            resetForm();
+            setShowCreateForm(true);
+          }}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
         >
           + Schedule Auction
         </button>
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          {error}
+          <button
+            onClick={clearError}
+            className="float-right text-red-700 hover:text-red-900"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+   
 
       {/* Scheme Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -212,15 +253,15 @@ const AuctionManagement = () => {
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="all">All Schemes</option>
-            {chitSchemes.map((scheme, index) => (
-              <option key={index} value={scheme}>{scheme}</option>
+            {chitSchemes.map((scheme) => (
+              <option key={scheme.id} value={scheme.id}>{scheme.name}</option>
             ))}
           </select>
         </div>
       </div>
 
       {/* Add/Edit Auction Form Modal */}
-      {showAuctionForm && (
+      {showCreateForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
@@ -229,17 +270,23 @@ const AuctionManagement = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Chit Scheme</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Chit Scheme
+                    {editingAuction && <span className="text-xs text-gray-500 ml-2">(Cannot be changed)</span>}
+                  </label>
                   <select
-                    name="chitScheme"
-                    value={formData.chitScheme}
-                    onChange={handleInputChange}
+                    name="chitSchemeId"
+                    value={formData.chitSchemeId}
+                    onChange={handleInputChange}  
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={editingAuction}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${editingAuction ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   >
                     <option value="">Select Scheme</option>
-                    {chitSchemes.map((scheme, index) => (
-                      <option key={index} value={scheme}>{scheme}</option>
+                    {chitSchemes.map((scheme) => (
+                      <option key={scheme.id} value={scheme.id}>
+                        {scheme.name} (ID: {scheme.id})
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -248,10 +295,9 @@ const AuctionManagement = () => {
                   <input
                     type="number"
                     name="chitValue"
-                    value={formData.chitValue}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={formData.chitValue || (formData.chitSchemeId ? chitSchemes.find(s => s.id === formData.chitSchemeId)?.chitValue : '') || ''}
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
                   />
                 </div>
               </div>
@@ -262,7 +308,7 @@ const AuctionManagement = () => {
                   <input
                     type="date"
                     name="auctionDate"
-                    value={formData.auctionDate}
+                    value={formData.auctionDate || ''}
                     onChange={handleInputChange}
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -272,13 +318,13 @@ const AuctionManagement = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                   <select
                     name="status"
-                    value={formData.status}
+                    value={formData.status || 'SCHEDULED'}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="Scheduled">Scheduled</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Cancelled">Cancelled</option>
+                    <option value="SCHEDULED">Scheduled</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="CANCELLED">Cancelled</option>
                   </select>
                 </div>
               </div>
@@ -287,14 +333,16 @@ const AuctionManagement = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Winning Member</label>
                   <select
-                    name="winningMember"
-                    value={formData.winningMember}
+                    name="winningMemberId"
+                    value={formData.winningMemberId}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">Select Member</option>
                     {members.map((member) => (
-                      <option key={member.id} value={member.name}>{member.name}</option>
+                      <option key={member.id} value={member.id}>
+                        {member.name} (ID: {member.id})
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -303,9 +351,9 @@ const AuctionManagement = () => {
                   <input
                     type="text"
                     name="memberId"
-                    value={formData.memberId}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={formData.memberId || (formData.winningMemberId ? members.find(m => m.id === formData.winningMemberId)?.id : '') || ''}
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
                   />
                 </div>
               </div>
@@ -316,8 +364,9 @@ const AuctionManagement = () => {
                   <input
                     type="number"
                     name="amountReceived"
-                    value={formData.amountReceived}
+                    value={formData.amountReceived || ''}
                     onChange={handleInputChange}
+                    min="0"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -326,8 +375,9 @@ const AuctionManagement = () => {
                   <input
                     type="number"
                     name="discountAmount"
-                    value={formData.discountAmount}
+                    value={formData.discountAmount || ''}
                     onChange={handleInputChange}
+                    min="0"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -339,8 +389,9 @@ const AuctionManagement = () => {
                   <input
                     type="number"
                     name="previousDailyPayment"
-                    value={formData.previousDailyPayment}
+                    value={formData.previousDailyPayment || ''}
                     onChange={handleInputChange}
+                    min="1"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -349,8 +400,9 @@ const AuctionManagement = () => {
                   <input
                     type="number"
                     name="newDailyPayment"
-                    value={formData.newDailyPayment}
+                    value={formData.newDailyPayment || ''}
                     onChange={handleInputChange}
+                    min="1"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -360,7 +412,7 @@ const AuctionManagement = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
                 <textarea
                   name="remarks"
-                  value={formData.remarks}
+                  value={formData.remarks || ''}
                   onChange={handleInputChange}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -372,21 +424,8 @@ const AuctionManagement = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setShowAuctionForm(false);
-                    setEditingAuction(null);
-                    setFormData({
-                      chitScheme: '',
-                      chitValue: '',
-                      auctionDate: '',
-                      winningMember: '',
-                      memberId: '',
-                      amountReceived: '',
-                      discountAmount: '',
-                      newDailyPayment: '',
-                      previousDailyPayment: '',
-                      status: 'Scheduled',
-                      remarks: ''
-                    });
+                    setShowCreateForm(false);
+                    resetForm();
                   }}
                   className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
@@ -394,9 +433,10 @@ const AuctionManagement = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  disabled={loading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {editingAuction ? 'Update Auction' : 'Schedule Auction'}
+                  {loading ? 'Processing...' : (editingAuction ? 'Update Auction' : 'Schedule Auction')}
                 </button>
               </div>
             </form>
@@ -424,55 +464,69 @@ const AuctionManagement = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredAuctions.map((auction) => (
-                <tr key={auction.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{auction.chitScheme}</div>
-                      <div className="text-sm text-gray-500">Value: ₹{auction.chitValue.toLocaleString()}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(auction.auctionDate).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{auction.winningMember}</div>
-                      <div className="text-sm text-gray-500">ID: {auction.memberId}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ₹{auction.amountReceived.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ₹{auction.discountAmount.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ₹{auction.newDailyPayment.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(auction.status)}`}>
-                      {auction.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleEdit(auction)}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(auction.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Delete
-                      </button>
-                    </div>
+              {loading ? (
+                <tr>
+                  <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
+                    Loading auctions...
                   </td>
                 </tr>
-              ))}
+              ) : filteredAuctions.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
+                    No auctions found
+                  </td>
+                </tr>
+              ) : (
+                filteredAuctions.map((auction) => (
+                  <tr key={auction.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{auction.chitScheme?.name || 'Unknown Scheme'}</div>
+                        <div className="text-sm text-gray-500">Value: ₹{auction.chitScheme?.chitValue?.toLocaleString() || 'N/A'}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {auction.auctionDate ? new Date(auction.auctionDate).toLocaleDateString() : 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{auction.winningMember?.name || 'No Member'}</div>
+                        <div className="text-sm text-gray-500">ID: {auction.winningMember?.id || 'N/A'}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      ₹{(auction.amountReceived || 0).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      ₹{(auction.discountAmount || 0).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      ₹{(auction.newDailyPayment || 0).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(auction.status)}`}>
+                        {auction.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleEdit(auction)}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(auction.id)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

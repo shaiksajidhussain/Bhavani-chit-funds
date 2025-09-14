@@ -1,58 +1,25 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
+import useReportsStore from '../../stores/reportsStore';
 
 const Reports = () => {
-  const [selectedReport, setSelectedReport] = useState('daily');
-  const [dateRange, setDateRange] = useState({
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0]
-  });
+  const {
+    reportData,
+    topCustomers,
+    schemePerformance,
+    loading,
+    error,
+    selectedReport,
+    dateRange,
+    setSelectedReport,
+    setDateRange,
+    fetchReport,
+    clearError
+  } = useReportsStore();
 
-  // Static report data
-  const reportData = {
-    daily: {
-      totalCollection: 125000,
-      paidMembers: 45,
-      pendingMembers: 8,
-      defaulters: 2,
-      collectionRate: 85.5
-    },
-    monthly: {
-      totalCollection: 3750000,
-      paidMembers: 1200,
-      pendingMembers: 50,
-      defaulters: 15,
-      collectionRate: 88.2
-    },
-    yearly: {
-      totalCollection: 45000000,
-      paidMembers: 1250,
-      pendingMembers: 200,
-      defaulters: 50,
-      collectionRate: 86.5
-    },
-    customer: {
-      totalCollection: 2500000,
-      paidMembers: 150,
-      pendingMembers: 25,
-      defaulters: 8,
-      collectionRate: 82.1
-    },
-    scheme: {
-      totalCollection: 5000000,
-      paidMembers: 200,
-      pendingMembers: 30,
-      defaulters: 12,
-      collectionRate: 87.3
-    }
-  };
-
-  const currentData = reportData[selectedReport] || {
-    totalCollection: 0,
-    paidMembers: 0,
-    pendingMembers: 0,
-    defaulters: 0,
-    collectionRate: 0
-  };
+  // Fetch data on component mount and when report type changes
+  useEffect(() => {
+    fetchReport();
+  }, [selectedReport, dateRange.startDate, fetchReport]);
 
   const reportTypes = [
     { id: 'daily', label: 'Daily Report', icon: '📅' },
@@ -62,25 +29,25 @@ const Reports = () => {
     { id: 'scheme', label: 'Scheme Report', icon: '📋' }
   ];
 
-  const topCustomers = [
-    { name: 'Rajesh Kumar', totalPaid: 150000, balance: 350000, status: 'Active' },
-    { name: 'Priya Sharma', totalPaid: 200000, balance: 300000, status: 'Active' },
-    { name: 'Amit Singh', totalPaid: 500000, balance: 0, status: 'Completed' },
-    { name: 'Sunita Patel', totalPaid: 120000, balance: 180000, status: 'Defaulted' }
-  ];
-
-  const schemePerformance = [
-    { scheme: '₹5,00,000 - 30 months', members: 30, enrolled: 25, collection: 85, status: 'Active' },
-    { scheme: '₹5,00,000 - 200 days', members: 20, enrolled: 18, collection: 90, status: 'Active' },
-    { scheme: '₹3,00,000 - 18 months', members: 25, enrolled: 25, collection: 100, status: 'Completed' }
-  ];
+  // Use API data from store
+  const currentData = reportData || {
+    totalCollection: 0,
+    paidMembers: 0,
+    pendingMembers: 0,
+    defaulters: 0,
+    collectionRate: 0
+  };
 
   const handleExport = (format) => {
     alert(`Exporting ${selectedReport} report as ${format}...`);
   };
 
+  const handleDateChange = (field, value) => {
+    setDateRange(prev => ({ ...prev, [field]: value }));
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 h-full overflow-y-auto px-4 py-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Reports & Analytics</h1>
@@ -88,17 +55,46 @@ const Reports = () => {
           <input
             type="date"
             value={dateRange.startDate}
-            onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+            onChange={(e) => handleDateChange('startDate', e.target.value)}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           <input
             type="date"
             value={dateRange.endDate}
-            onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+            onChange={(e) => handleDateChange('endDate', e.target.value)}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
       </div>
+
+      {/* Loading and Error States */}
+      {loading && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+            <span className="text-blue-800">Loading report data...</span>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <svg className="h-5 w-5 text-red-400 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <span className="text-red-800">Error: {error}</span>
+            </div>
+            <button
+              onClick={clearError}
+              className="text-red-600 hover:text-red-800"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Report Type Selector */}
       <div className="bg-white p-6 rounded-lg shadow-sm border">

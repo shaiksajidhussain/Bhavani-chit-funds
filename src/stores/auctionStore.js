@@ -180,7 +180,9 @@ const useAuctionStore = create((set, get) => ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        const error = new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        error.response = { data: errorData };
+        throw error;
       }
 
       const data = await response.json();
@@ -250,7 +252,9 @@ const useAuctionStore = create((set, get) => ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        const error = new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        error.response = { data: errorData };
+        throw error;
       }
 
       const data = await response.json();
@@ -288,7 +292,9 @@ const useAuctionStore = create((set, get) => ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        const error = new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        error.response = { data: errorData };
+        throw error;
       }
 
       const data = await response.json();

@@ -61,12 +61,14 @@ export const useChitSchemeStore = create((set) => ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create chit scheme');
+        const error = new Error(errorData.message || 'Failed to create chit scheme');
+        error.response = { data: errorData };
+        throw error;
       }
 
       const responseData = await response.json();
-      // Handle nested response structure: { success: true, data: { ... } }
-      const newScheme = responseData.data || responseData;
+      // Handle nested response structure: { success: true, data: { scheme: ... } }
+      const newScheme = responseData.data?.scheme || responseData.data || responseData;
       set((state) => ({
         schemes: [...(Array.isArray(state.schemes) ? state.schemes : []), newScheme],
         loading: false,
@@ -96,12 +98,14 @@ export const useChitSchemeStore = create((set) => ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update chit scheme');
+        const error = new Error(errorData.message || 'Failed to update chit scheme');
+        error.response = { data: errorData };
+        throw error;
       }
 
       const responseData = await response.json();
-      // Handle nested response structure: { success: true, data: { ... } }
-      const updatedScheme = responseData.data || responseData;
+      // Handle nested response structure: { success: true, data: { scheme: ... } }
+      const updatedScheme = responseData.data?.scheme || responseData.data || responseData;
       set((state) => ({
         schemes: Array.isArray(state.schemes) ? state.schemes.map(scheme => 
           scheme.id === id ? updatedScheme : scheme
@@ -132,7 +136,9 @@ export const useChitSchemeStore = create((set) => ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to delete chit scheme');
+        const error = new Error(errorData.message || 'Failed to delete chit scheme');
+        error.response = { data: errorData };
+        throw error;
       }
 
       set((state) => ({

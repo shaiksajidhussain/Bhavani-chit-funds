@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import useAuctionStore from '../../stores/auctionStore';
 
 const AuctionManagement = () => {
@@ -25,13 +27,98 @@ const AuctionManagement = () => {
   } = useAuctionStore();
 
   const [selectedScheme, setSelectedScheme] = useState('all');
+  
+  // Local loading states
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Load data on component mount
   useEffect(() => {
-    fetchAuctions();
-    fetchChitSchemes();
-    fetchMembers();
+    const loadData = async () => {
+      try {
+        await fetchAuctions();
+        await fetchChitSchemes();
+        await fetchMembers();
+      } catch (error) {
+        handleApiError(error, 'Failed to load auction data');
+      }
+    };
+    loadData();
   }, [fetchAuctions, fetchChitSchemes, fetchMembers]);
+
+  // Helper function to handle API errors and show toast notifications
+  const handleApiError = (error, defaultMessage = 'An error occurred') => {
+    console.error('API Error:', error);
+    
+    if (error.response?.data) {
+      const { success, message, errors } = error.response.data;
+      
+      if (!success && errors && Array.isArray(errors)) {
+        // Handle validation errors - show each error message
+        errors.forEach(errorItem => {
+          const fieldName = errorItem.path || 'Field';
+          const errorMessage = errorItem.msg || 'Invalid value';
+          toast.error(`${fieldName}: ${errorMessage}`, {
+            position: "top-right",
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+          });
+        });
+      } else if (message) {
+        // Handle general error messages
+        toast.error(message, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+      } else {
+        toast.error(defaultMessage, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+      }
+    } else if (error.message) {
+      toast.error(error.message, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+    } else {
+      toast.error(defaultMessage, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+    }
+  };
+
+  // Helper function to show success messages
+  const showSuccessMessage = (message) => {
+    toast.success(message, {
+      position: "top-right",
+      autoClose: 3000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+    });
+  };
 
   // Debug form data changes
   useEffect(() => {
@@ -95,6 +182,7 @@ const AuctionManagement = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
     
     // Get the current form data from the store
     const currentFormData = useAuctionStore.getState().formData;
@@ -106,26 +194,49 @@ const AuctionManagement = () => {
     
     // Check if form data is empty
     if (!currentFormData.chitSchemeId) {
-      alert('Please select a chit scheme');
+      toast.error('Please select a chit scheme', {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+      setIsSubmitting(false);
       return;
     }
     if (!currentFormData.auctionDate) {
-      alert('Please select an auction date');
+      toast.error('Please select an auction date', {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+      setIsSubmitting(false);
       return;
     }
     
     try {
       if (editingAuction) {
         await updateAuction(editingAuction.id, currentFormData);
+        showSuccessMessage('Auction updated successfully!');
         setEditingAuction(null);
+        // Refresh the auctions list after update
+        await fetchAuctions();
       } else {
         await createAuction(currentFormData);
+        showSuccessMessage('Auction created successfully!');
+        // Refresh the auctions list after creation
+        await fetchAuctions();
       }
       setShowCreateForm(false);
       resetForm();
     } catch (error) {
-      console.error('Error submitting auction:', error);
-      // Error is handled by the store
+      handleApiError(error, 'Failed to save auction');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -149,23 +260,20 @@ const AuctionManagement = () => {
 
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this auction record?')) {
+      setIsDeleting(true);
       try {
         await deleteAuction(id);
+        showSuccessMessage('Auction deleted successfully!');
+        // Refresh the auctions list after deletion
+        await fetchAuctions();
       } catch (error) {
-        console.error('Error deleting auction:', error);
-        // Error is handled by the store
+        handleApiError(error, 'Failed to delete auction');
+      } finally {
+        setIsDeleting(false);
       }
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status.toLowerCase()) {
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'scheduled': return 'bg-blue-100 text-blue-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
 
   const getSchemeStats = () => {
     const stats = {};
@@ -201,7 +309,7 @@ const AuctionManagement = () => {
           }}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
         >
-          + Schedule Auction
+          + Add
         </button>
       </div>
 
@@ -265,7 +373,7 @@ const AuctionManagement = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              {editingAuction ? 'Edit Auction' : 'Schedule New Auction'}
+              {editingAuction ? 'Edit Lifting' : 'Lifting '}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -304,7 +412,7 @@ const AuctionManagement = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Auction Date</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Chit Date</label>
                   <input
                     type="date"
                     name="auctionDate"
@@ -315,17 +423,15 @@ const AuctionManagement = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                  <select
-                    name="status"
-                    value={formData.status || 'SCHEDULED'}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Chit Number</label>
+                  <input
+                    type="number"
+                    name="newDailyPayment"
+                    value={formData.newDailyPayment || ''}
                     onChange={handleInputChange}
+                    min="1"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="SCHEDULED">Scheduled</option>
-                    <option value="COMPLETED">Completed</option>
-                    <option value="CANCELLED">Cancelled</option>
-                  </select>
+                  />
                 </div>
               </div>
 
@@ -370,7 +476,7 @@ const AuctionManagement = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Discount Amount (₹)</label>
                   <input
                     type="number"
@@ -380,10 +486,10 @@ const AuctionManagement = () => {
                     min="0"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
-                </div>
+                </div> */}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Previous Daily Payment (₹)</label>
                   <input
@@ -406,7 +512,7 @@ const AuctionManagement = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
-              </div>
+              </div> */}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
@@ -427,16 +533,24 @@ const AuctionManagement = () => {
                     setShowCreateForm(false);
                     resetForm();
                   }}
-                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                 >
-                  {loading ? 'Processing...' : (editingAuction ? 'Update Auction' : 'Schedule Auction')}
+                  {isSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      {editingAuction ? 'Updating...' : 'Creating...'}
+                    </>
+                  ) : (
+                    editingAuction ? 'Update' : 'Save'
+                  )}
                 </button>
               </div>
             </form>
@@ -452,27 +566,28 @@ const AuctionManagement = () => {
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
-              <tr>
+              <tr>  
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scheme</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Auction Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chit Number</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Winning Member</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount Received</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Discount</th>
+                {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Discount</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">New Payment</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th> */}
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
                     Loading auctions...
                   </td>
                 </tr>
               ) : filteredAuctions.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
                     No auctions found
                   </td>
                 </tr>
@@ -488,6 +603,9 @@ const AuctionManagement = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {auction.auctionDate ? new Date(auction.auctionDate).toLocaleDateString() : 'N/A'}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {auction.newDailyPayment || 'N/A'}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">{auction.winningMember?.name || 'No Member'}</div>
@@ -497,17 +615,17 @@ const AuctionManagement = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       ₹{(auction.amountReceived || 0).toLocaleString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       ₹{(auction.discountAmount || 0).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       ₹{(auction.newDailyPayment || 0).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    </td> */}
+                    {/* <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(auction.status)}`}>
                         {auction.status}
                       </span>
-                    </td>
+                    </td> */}
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
                         <button
@@ -518,9 +636,17 @@ const AuctionManagement = () => {
                         </button>
                         <button
                           onClick={() => handleDelete(auction.id)}
-                          className="text-red-600 hover:text-red-900"
+                          disabled={isDeleting}
+                          className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                         >
-                          Delete
+                          {isDeleting ? (
+                            <>
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600 mr-1"></div>
+                              Deleting...
+                            </>
+                          ) : (
+                            'Delete'
+                          )}
                         </button>
                       </div>
                     </td>
@@ -531,6 +657,20 @@ const AuctionManagement = () => {
           </table>
         </div>
       </div>
+
+      {/* Toast Container */}
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
     </div>
   );
 };

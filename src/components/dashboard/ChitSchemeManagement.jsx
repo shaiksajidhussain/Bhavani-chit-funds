@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { useChitSchemeStore } from '../../stores/chitSchemeStore';
 
 const ChitSchemeManagement = () => {
@@ -27,6 +29,7 @@ const ChitSchemeManagement = () => {
     chitValue: '',
     duration: '',
     durationType: 'months',
+    paymentType: 'DAILY',
     dailyPayment: '',
     monthlyPayment: '',
     numberOfMembers: '',
@@ -36,13 +39,17 @@ const ChitSchemeManagement = () => {
     lastDate: ''
   });
 
+  // Local loading states
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Fetch schemes on component mount
   useEffect(() => {
     const loadSchemes = async () => {
       try {
         await fetchSchemes();
       } catch (error) {
-        console.error('Error loading schemes:', error);
+        handleApiError(error, 'Failed to load chit schemes');
       }
     };
     loadSchemes();
@@ -50,6 +57,80 @@ const ChitSchemeManagement = () => {
 
   // Ensure schemes is always an array
   const safeSchemes = Array.isArray(schemes) ? schemes : [];
+
+  // Helper function to handle API errors and show toast notifications
+  const handleApiError = (error, defaultMessage = 'An error occurred') => {
+    console.error('API Error:', error);
+    
+    if (error.response?.data) {
+      const { success, message, errors } = error.response.data;
+      
+      if (!success && errors && Array.isArray(errors)) {
+        // Handle validation errors - show each error message
+        errors.forEach(errorItem => {
+          const fieldName = errorItem.path || 'Field';
+          const errorMessage = errorItem.msg || 'Invalid value';
+          toast.error(`${fieldName}: ${errorMessage}`, {
+            position: "top-right",
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+          });
+        });
+      } else if (message) {
+        // Handle general error messages
+        toast.error(message, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+      } else {
+        toast.error(defaultMessage, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+      }
+    } else if (error.message) {
+      toast.error(error.message, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+    } else {
+      toast.error(defaultMessage, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+    }
+  };
+
+  // Helper function to show success messages
+  const showSuccessMessage = (message) => {
+    toast.success(message, {
+      position: "top-right",
+      autoClose: 3000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+    });
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -61,14 +142,17 @@ const ChitSchemeManagement = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
+    
     try {
       const schemeData = {
         ...formData,
         chitValue: parseInt(formData.chitValue),
         duration: parseInt(formData.duration),
         durationType: formData.durationType.toUpperCase(), // Convert to uppercase
-        dailyPayment: parseInt(formData.dailyPayment),
-        monthlyPayment: parseInt(formData.monthlyPayment),
+        paymentType: formData.paymentType.toUpperCase(), // Convert to uppercase
+        dailyPayment: formData.paymentType === 'DAILY' ? parseInt(formData.dailyPayment) : null,
+        monthlyPayment: formData.paymentType === 'MONTHLY' ? parseInt(formData.monthlyPayment) : null,
         numberOfMembers: parseInt(formData.numberOfMembers),
         startDate: formData.startDate,
         lastDate: formData.lastDate || null,
@@ -77,8 +161,14 @@ const ChitSchemeManagement = () => {
 
       if (editingScheme) {
         await updateScheme(editingScheme.id, schemeData);
+        showSuccessMessage('Chit scheme updated successfully!');
+        // Refresh the schemes list after update
+        await fetchSchemes();
       } else {
         await createScheme(schemeData);
+        showSuccessMessage('Chit scheme created successfully!');
+        // Refresh the schemes list after creation
+        await fetchSchemes();
       }
       
       resetForm();
@@ -87,6 +177,7 @@ const ChitSchemeManagement = () => {
         chitValue: '',
         duration: '',
         durationType: 'months',
+        paymentType: 'DAILY',
         dailyPayment: '',
         monthlyPayment: '',
         numberOfMembers: '',
@@ -96,7 +187,9 @@ const ChitSchemeManagement = () => {
         lastDate: ''
       });
     } catch (error) {
-      console.error('Error saving scheme:', error);
+      handleApiError(error, 'Failed to save chit scheme');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -108,8 +201,9 @@ const ChitSchemeManagement = () => {
       chitValue: scheme.chitValue.toString(),
       duration: scheme.duration.toString(),
       durationType: scheme.durationType ? scheme.durationType.toLowerCase() : 'months',
-      dailyPayment: scheme.dailyPayment.toString(),
-      monthlyPayment: scheme.monthlyPayment.toString(),
+      paymentType: scheme.paymentType || 'DAILY',
+      dailyPayment: scheme.dailyPayment ? scheme.dailyPayment.toString() : '',
+      monthlyPayment: scheme.monthlyPayment ? scheme.monthlyPayment.toString() : '',
       numberOfMembers: scheme.numberOfMembers.toString(),
       auctionRules: scheme.auctionRules || '',
       status: scheme.status,
@@ -121,10 +215,16 @@ const ChitSchemeManagement = () => {
 
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this chit scheme?')) {
+      setIsDeleting(true);
       try {
         await deleteScheme(id);
+        showSuccessMessage('Chit scheme deleted successfully!');
+        // Refresh the schemes list after deletion
+        await fetchSchemes();
       } catch (error) {
-        console.error('Error deleting scheme:', error);
+        handleApiError(error, 'Failed to delete chit scheme');
+      } finally {
+        setIsDeleting(false);
       }
     }
   };
@@ -320,7 +420,20 @@ const ChitSchemeManagement = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Payment Type</label>
+                <select
+                  name="paymentType"
+                  value={formData.paymentType}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="DAILY">Daily Payment</option>
+                  <option value="MONTHLY">Monthly Payment</option>
+                </select>
+              </div>
+
+              {formData.paymentType === 'DAILY' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Daily Payment (₹)</label>
                   <input
@@ -330,8 +443,12 @@ const ChitSchemeManagement = () => {
                     onChange={handleInputChange}
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter daily payment amount"
                   />
                 </div>
+              )}
+
+              {formData.paymentType === 'MONTHLY' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Payment (₹)</label>
                   <input
@@ -339,10 +456,12 @@ const ChitSchemeManagement = () => {
                     name="monthlyPayment"
                     value={formData.monthlyPayment}
                     onChange={handleInputChange}
+                    required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter monthly payment amount"
                   />
                 </div>
-              </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Auction/Lifting Rules</label>
@@ -366,6 +485,7 @@ const ChitSchemeManagement = () => {
                       chitValue: '',
                       duration: '',
                       durationType: 'months',
+                      paymentType: 'DAILY',
                       dailyPayment: '',
                       monthlyPayment: '',
                       numberOfMembers: '',
@@ -375,15 +495,24 @@ const ChitSchemeManagement = () => {
                       lastDate: ''
                     });
                   }}
-                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                 >
-                  {editingScheme ? 'Update Scheme' : 'Create Scheme'}
+                  {isSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      {editingScheme ? 'Updating...' : 'Creating...'}
+                    </>
+                  ) : (
+                    editingScheme ? 'Update Scheme' : 'Create Scheme'
+                  )}
                 </button>
               </div>
             </form>
@@ -400,7 +529,8 @@ const ChitSchemeManagement = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scheme</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Daily Payment</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Type</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Amount</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Members</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
@@ -411,7 +541,7 @@ const ChitSchemeManagement = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {safeSchemes.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="px-6 py-4 text-center text-sm text-gray-500">
+                  <td colSpan="10" className="px-6 py-4 text-center text-sm text-gray-500">
                     {loading ? 'Loading schemes...' : 'No chit schemes found. Create your first scheme!'}
                   </td>
                 </tr>
@@ -436,7 +566,17 @@ const ChitSchemeManagement = () => {
                     {scheme.duration || 0} {scheme.durationType ? scheme.durationType.toLowerCase() : 'months'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ₹{(scheme.dailyPayment || 0).toLocaleString()}
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      scheme.paymentType === 'DAILY' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                    }`}>
+                      {scheme.paymentType || 'DAILY'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {scheme.paymentType === 'MONTHLY' 
+                      ? `₹${(scheme.monthlyPayment || 0).toLocaleString()}` 
+                      : `₹${(scheme.dailyPayment || 0).toLocaleString()}`
+                    }
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {scheme.lastDate ? new Date(scheme.lastDate).toLocaleDateString('en-GB') : '-'}
@@ -472,9 +612,17 @@ const ChitSchemeManagement = () => {
                       </button>
                       <button
                         onClick={() => handleDelete(scheme.id)}
-                        className="text-red-600 hover:text-red-900"
+                        disabled={isDeleting}
+                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                       >
-                        Delete
+                        {isDeleting ? (
+                          <>
+                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600 mr-1"></div>
+                            Deleting...
+                          </>
+                        ) : (
+                          'Delete'
+                        )}
                       </button>
                     </div>
                   </td>
@@ -607,6 +755,20 @@ const ChitSchemeManagement = () => {
           </div>
         </div>
       )}
+
+      {/* Toast Container */}
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
     </div>
   );
 };

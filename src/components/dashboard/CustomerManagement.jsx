@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import useCustomerStore from '../../stores/customerStore';
 import usePassbookStore from '../../stores/passbookStore';
 import { fileToBase64 } from '../../utils/imageUtils';
@@ -49,6 +51,12 @@ const CustomerManagement = () => {
   const [groupFilter, setGroupFilter] = useState('all');
   const [schemeFilter, setSchemeFilter] = useState('all');
   const [editingPassbookEntry, setEditingPassbookEntry] = useState(null);
+  
+  // Local loading states
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isPassbookSubmitting, setIsPassbookSubmitting] = useState(false);
+  const [isPassbookDeleting, setIsPassbookDeleting] = useState(false);
 
   // Form data state
   const [formData, setFormData] = useState({
@@ -75,7 +83,7 @@ const CustomerManagement = () => {
           fetchChitSchemes()
         ]);
       } catch (error) {
-        console.error('Error loading data:', error);
+        handleApiError(error, 'Failed to load data');
       }
     };
 
@@ -99,6 +107,80 @@ const CustomerManagement = () => {
   const getSchemeName = (schemeId) => {
     const scheme = chitSchemes.find(s => s.id === schemeId);
     return scheme ? scheme.name : 'Unknown Scheme';
+  };
+
+  // Helper function to handle API errors and show toast notifications
+  const handleApiError = (error, defaultMessage = 'An error occurred') => {
+    console.error('API Error:', error);
+    
+    if (error.response?.data) {
+      const { success, message, errors } = error.response.data;
+      
+      if (!success && errors && Array.isArray(errors)) {
+        // Handle validation errors - show each error message
+        errors.forEach(errorItem => {
+          const fieldName = errorItem.path || 'Field';
+          const errorMessage = errorItem.msg || 'Invalid value';
+          toast.error(`${fieldName}: ${errorMessage}`, {
+            position: "top-right",
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+          });
+        });
+      } else if (message) {
+        // Handle general error messages
+        toast.error(message, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+      } else {
+        toast.error(defaultMessage, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+      }
+    } else if (error.message) {
+      toast.error(error.message, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+    } else {
+      toast.error(defaultMessage, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+    }
+  };
+
+  // Helper function to show success messages
+  const showSuccessMessage = (message) => {
+    toast.success(message, {
+      position: "top-right",
+      autoClose: 3000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+    });
   };
 
   // Safe customers array
@@ -134,15 +216,17 @@ const CustomerManagement = () => {
         }
       }
     } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
+    
     try {
       // Debug: Log the photo data
       console.log('Photo data:', formData.photo);
@@ -176,30 +260,36 @@ const CustomerManagement = () => {
         photo: typeof dataToSend.photo
       });
 
-      if (editingCustomer) {
+    if (editingCustomer) {
         await updateCustomer(editingCustomer.id, dataToSend);
-        setEditingCustomer(null);
-      } else {
+      setEditingCustomer(null);
+        showSuccessMessage('Customer updated successfully!');
+    } else {
         await createCustomer(dataToSend);
+        showSuccessMessage('Customer created successfully!');
+        // Refresh the customer list after creation
+        await fetchCustomers();
       }
       setShowCreateForm(false);
       resetForm();
-      setFormData({
-        name: '',
-        mobile: '',
-        address: '',
-        schemeId: '',
-        startDate: '',
+    setFormData({
+      name: '',
+      mobile: '',
+      address: '',
+      schemeId: '',
+      startDate: '',
         lastDate: '',
-        amountPerDay: '',
-        duration: '',
+      amountPerDay: '',
+      duration: '',
         durationType: 'MONTHS',
-        group: 'Group A',
+      group: 'Group A',
         status: 'ACTIVE',
         photo: ''
-      });
+    });
     } catch (error) {
-      console.error('Error submitting form:', error);
+      handleApiError(error, 'Failed to save customer');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -215,10 +305,16 @@ const CustomerManagement = () => {
 
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this customer?')) {
+      setIsDeleting(true);
       try {
         await deleteCustomer(id);
+        showSuccessMessage('Customer deleted successfully!');
+        // Refresh the customer list after deletion
+        await fetchCustomers();
       } catch (error) {
-        console.error('Error deleting customer:', error);
+        handleApiError(error, 'Failed to delete customer');
+      } finally {
+        setIsDeleting(false);
       }
     }
   };
@@ -231,7 +327,7 @@ const CustomerManagement = () => {
     try {
       await fetchPassbookEntries(customer.id);
     } catch (error) {
-      console.error('Error fetching passbook entries:', error);
+      handleApiError(error, 'Failed to load passbook entries');
     }
   };
 
@@ -246,40 +342,57 @@ const CustomerManagement = () => {
   const handlePassbookSubmit = async (e) => {
     e.preventDefault();
     if (selectedCustomer) {
+      setIsPassbookSubmitting(true);
       try {
         if (editingPassbookEntry) {
           await updatePassbookEntry(selectedCustomer.id, passbookFormData);
+          showSuccessMessage('Passbook entry updated successfully!');
         } else {
           await createPassbookEntry(selectedCustomer.id, passbookFormData);
+          showSuccessMessage('Passbook entry created successfully!');
         }
+        // Refresh passbook entries after creation/update
+        await fetchPassbookEntries(selectedCustomer.id);
         resetPassbookForm();
         setEditingPassbookEntry(null);
         setShowPassbookForm(false);
       } catch (error) {
-        console.error('Error saving passbook entry:', error);
+        handleApiError(error, 'Failed to save passbook entry');
+      } finally {
+        setIsPassbookSubmitting(false);
       }
     }
   };
 
   const handleDeletePassbookEntry = async (entryId) => {
     if (window.confirm('Are you sure you want to delete this passbook entry?')) {
+      setIsPassbookDeleting(true);
       try {
         await deletePassbookEntry(entryId);
+        showSuccessMessage('Passbook entry deleted successfully!');
+        // Refresh passbook entries after deletion
+        if (selectedCustomer) {
+          await fetchPassbookEntries(selectedCustomer.id);
+        }
       } catch (error) {
-        console.error('Error deleting passbook entry:', error);
+        handleApiError(error, 'Failed to delete passbook entry');
+      } finally {
+        setIsPassbookDeleting(false);
       }
     }
   };
 
   const handleEditPassbookEntry = (entry) => {
     setEditingPassbookEntry(entry);
-    setPassbookFormData({
+      setPassbookFormData({
       month: entry.month.toString(),
       date: new Date(entry.date).toISOString().split('T')[0],
       dailyPayment: entry.dailyPayment.toString(),
       amount: entry.amount.toString(),
       chittiAmount: entry.chittiAmount.toString(),
-      type: entry.type
+      type: entry.type,
+      paymentMethod: entry.paymentMethod || 'CASH',
+      paymentFrequency: entry.paymentFrequency || 'DAILY'
     });
     setShowPassbookForm(true);
   };
@@ -637,15 +750,24 @@ const CustomerManagement = () => {
                       photo: ''
                     });
                   }}
-                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                 >
-                  {editingCustomer ? 'Update Customer' : 'Add Customer'}
+                  {isSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      {editingCustomer ? 'Updating...' : 'Creating...'}
+                    </>
+                  ) : (
+                    editingCustomer ? 'Update Customer' : 'Add Customer'
+                  )}
                 </button>
               </div>
             </form>
@@ -804,9 +926,17 @@ const CustomerManagement = () => {
                       </button>
                       <button
                         onClick={() => handleDelete(customer.id)}
-                        className="text-red-600 hover:text-red-900"
+                        disabled={isDeleting}
+                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                       >
-                        Delete
+                        {isDeleting ? (
+                          <>
+                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600 mr-1"></div>
+                            Deleting...
+                          </>
+                        ) : (
+                          'Delete'
+                        )}
                       </button>
                     </div>
                   </td>
@@ -864,12 +994,12 @@ const CustomerManagement = () => {
                 <h3 className="text-lg font-semibold text-gray-900">Passbook Entries</h3>
                 <div className="flex space-x-2">
                   
-                  <button
-                    onClick={() => setShowPassbookForm(true)}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    + Add Manual Entry
-                  </button>
+                <button
+                  onClick={() => setShowPassbookForm(true)}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  + Add Manual Entry
+                </button>
                 </div>
               </div>
 
@@ -935,7 +1065,9 @@ const CustomerManagement = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Daily Payment (₹)</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {passbookFormData.paymentFrequency === 'MONTHLY' ? 'Monthly Payment (₹)' : 'Daily Payment (₹)'}
+                        </label>
                         <input
                           type="number"
                           name="dailyPayment"
@@ -973,6 +1105,38 @@ const CustomerManagement = () => {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                       </div>
+                      
+                      {/* Payment Method */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                        <select
+                          name="paymentMethod"
+                          value={passbookFormData.paymentMethod}
+                          onChange={handlePassbookInputChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="CASH">Cash</option>
+                          <option value="BANK_TRANSFER">Bank Transfer</option>
+                          <option value="UPI">UPI</option>
+                          <option value="CHEQUE">Cheque</option>
+                          <option value="NOT_PAID">Not Paid</option>
+                        </select>
+                      </div>
+
+                      {/* Payment Frequency */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Payment Frequency</label>
+                        <select
+                          name="paymentFrequency"
+                          value={passbookFormData.paymentFrequency}
+                          onChange={handlePassbookInputChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="DAILY">Daily</option>
+                          <option value="MONTHLY">Monthly</option>
+                        </select>
+                      </div>
+
                       <div className="flex justify-end space-x-3 pt-4">
                         <button
                           type="button"
@@ -981,19 +1145,24 @@ const CustomerManagement = () => {
                             setEditingPassbookEntry(null);
                             resetPassbookForm();
                           }}
-                          className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                          disabled={isPassbookSubmitting}
+                          className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Cancel
                         </button>
                         <button
                           type="submit"
-                          disabled={passbookLoading}
-                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                          disabled={isPassbookSubmitting || passbookLoading}
+                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                         >
-                          {passbookLoading 
-                            ? (editingPassbookEntry ? 'Updating...' : 'Adding...') 
-                            : (editingPassbookEntry ? 'Update Entry' : 'Add Entry')
-                          }
+                          {isPassbookSubmitting ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              {editingPassbookEntry ? 'Updating...' : 'Adding...'}
+                            </>
+                          ) : (
+                            editingPassbookEntry ? 'Update Entry' : 'Add Entry'
+                          )}
                         </button>
                       </div>
                     </form>
@@ -1013,9 +1182,11 @@ const CustomerManagement = () => {
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Daily Payment</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chitti Amount</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Frequency</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
@@ -1024,20 +1195,49 @@ const CustomerManagement = () => {
                       {passbookEntries && passbookEntries.length > 0 ? (
                         passbookEntries.map((entry) => (
                           <tr key={entry.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {entry.month}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {entry.month}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {new Date(entry.date).toLocaleDateString('en-GB')}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <div>
+                                <div className="font-medium">₹{entry.dailyPayment.toLocaleString()}</div>
+                                <div className="text-xs text-gray-500">
+                                  {entry.paymentFrequency === 'MONTHLY' ? 'Monthly' : 'Daily'} Payment
+                                </div>
+                              </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ₹{entry.amount.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ₹{entry.chittiAmount.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                entry.paymentMethod === 'CASH' 
+                                  ? 'bg-green-100 text-green-800' :
+                                entry.paymentMethod === 'BANK_TRANSFER' 
+                                  ? 'bg-blue-100 text-blue-800' :
+                                entry.paymentMethod === 'UPI' 
+                                  ? 'bg-purple-100 text-purple-800' :
+                                entry.paymentMethod === 'CHEQUE' 
+                                  ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-red-100 text-red-800'
+                              }`}>
+                                {entry.paymentMethod?.replace('_', ' ') || 'CASH'}
+                              </span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {new Date(entry.date).toLocaleDateString('en-GB')}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              ₹{entry.dailyPayment.toLocaleString()}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              ₹{entry.amount.toLocaleString()}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              ₹{entry.chittiAmount.toLocaleString()}
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                entry.paymentFrequency === 'DAILY' 
+                                  ? 'bg-blue-100 text-blue-800' 
+                                  : 'bg-orange-100 text-orange-800'
+                              }`}>
+                                {entry.paymentFrequency || 'DAILY'}
+                              </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -1046,29 +1246,37 @@ const CustomerManagement = () => {
                                   : 'bg-green-100 text-green-800'
                               }`}>
                                 {entry.type}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               {entry.type === 'MANUAL' ? (
                                 <div className="flex space-x-2">
-                                  <button
+                            <button
                                     onClick={() => handleEditPassbookEntry(entry)}
                                     className="text-blue-600 hover:text-blue-900"
                                   >
                                     Edit
-                                  </button>
+                            </button>
                                   <button
                                     onClick={() => handleDeletePassbookEntry(entry.id)}
-                                    className="text-red-600 hover:text-red-900"
+                                    disabled={isPassbookDeleting}
+                                    className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                                   >
-                                    Delete
+                                    {isPassbookDeleting ? (
+                                      <>
+                                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600 mr-1"></div>
+                                        Deleting...
+                                      </>
+                                    ) : (
+                                      'Delete'
+                                    )}
                                   </button>
                                 </div>
                               ) : (
                                 <span className="text-gray-500">-</span>
                               )}
-                            </td>
-                          </tr>
+                          </td>
+                        </tr>
                         ))
                       ) : (
                         <tr>
@@ -1109,6 +1317,20 @@ const CustomerManagement = () => {
           </div>
         </div>
       )}
+
+      {/* Toast Container */}
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
     </div>
   );
 };

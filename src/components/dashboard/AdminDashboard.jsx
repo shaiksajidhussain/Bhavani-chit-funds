@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import useCustomerStore from '../../stores/customerStore';
 import usePassbookStore from '../../stores/passbookStore';
 
@@ -20,7 +22,15 @@ const AdminDashboard = () => {
     entries: passbookEntries,
     loading: passbookLoading,
     error: passbookError,
+    showAddForm: showPassbookForm,
+    formData: passbookFormData,
+    setShowAddForm: setShowPassbookForm,
+    setFormData: setPassbookFormData,
+    resetForm: resetPassbookForm,
     fetchPassbookEntries,
+    createPassbookEntry,
+    updatePassbookEntry,
+    deletePassbookEntry,
     clearError: clearPassbookError
   } = usePassbookStore();
 
@@ -29,6 +39,9 @@ const AdminDashboard = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchRef, setSearchRef] = useState(null);
+  const [editingPassbookEntry, setEditingPassbookEntry] = useState(null);
+  const [isPassbookSubmitting, setIsPassbookSubmitting] = useState(false);
+  const [isPassbookDeleting, setIsPassbookDeleting] = useState(false);
 
   // Fetch customers on component mount
   useEffect(() => {
@@ -85,18 +98,171 @@ const AdminDashboard = () => {
     try {
       await fetchPassbookEntries(customer.id);
     } catch (error) {
-      console.error('Error fetching passbook entries:', error);
+      handleApiError(error, 'Failed to load passbook entries');
     }
+  };
+
+  // Helper function to handle API errors and show toast notifications
+  const handleApiError = (error, defaultMessage = 'An error occurred') => {
+    console.error('API Error:', error);
+    
+    if (error.response?.data) {
+      const { success, message, errors } = error.response.data;
+      
+      if (!success && errors && Array.isArray(errors)) {
+        // Handle validation errors - show each error message
+        errors.forEach(errorItem => {
+          const fieldName = errorItem.path || 'Field';
+          const errorMessage = errorItem.msg || 'Invalid value';
+          toast.error(`${fieldName}: ${errorMessage}`, {
+            position: "top-right",
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+          });
+        });
+      } else if (message) {
+        // Handle general error messages
+        toast.error(message, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+      } else {
+        toast.error(defaultMessage, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+      }
+    } else if (error.message) {
+      toast.error(error.message, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+    } else {
+      toast.error(defaultMessage, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+    }
+  };
+
+  // Helper function to show success messages
+  const showSuccessMessage = (message) => {
+    toast.success(message, {
+      position: "top-right",
+      autoClose: 3000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+    });
+  };
+
+  // Passbook form handlers
+  const handlePassbookInputChange = (e) => {
+    const { name, value } = e.target;
+    setPassbookFormData({
+      ...passbookFormData,
+      [name]: value
+    });
+  };
+
+  const handlePassbookSubmit = async (e) => {
+    e.preventDefault();
+    if (selectedCustomer) {
+      setIsPassbookSubmitting(true);
+      try {
+        if (editingPassbookEntry) {
+          await updatePassbookEntry(selectedCustomer.id, passbookFormData);
+          showSuccessMessage('Passbook entry updated successfully!');
+        } else {
+          await createPassbookEntry(selectedCustomer.id, passbookFormData);
+          showSuccessMessage('Passbook entry created successfully!');
+        }
+        // Refresh passbook entries after creation/update
+        await fetchPassbookEntries(selectedCustomer.id);
+        resetPassbookForm();
+        setEditingPassbookEntry(null);
+        setShowPassbookForm(false);
+      } catch (error) {
+        handleApiError(error, 'Failed to save passbook entry');
+      } finally {
+        setIsPassbookSubmitting(false);
+      }
+    }
+  };
+
+  const handleDeletePassbookEntry = async (entryId) => {
+    if (window.confirm('Are you sure you want to delete this passbook entry?')) {
+      setIsPassbookDeleting(true);
+      try {
+        await deletePassbookEntry(entryId);
+        showSuccessMessage('Passbook entry deleted successfully!');
+        // Refresh passbook entries after deletion
+        if (selectedCustomer) {
+          await fetchPassbookEntries(selectedCustomer.id);
+        }
+      } catch (error) {
+        handleApiError(error, 'Failed to delete passbook entry');
+      } finally {
+        setIsPassbookDeleting(false);
+      }
+    }
+  };
+
+  const handleEditPassbookEntry = (entry) => {
+    setEditingPassbookEntry(entry);
+    setPassbookFormData({
+      month: entry.month.toString(),
+      date: new Date(entry.date).toISOString().split('T')[0],
+      dailyPayment: entry.dailyPayment.toString(),
+      amount: entry.amount.toString(),
+      chittiAmount: entry.chittiAmount.toString(),
+      type: entry.type,
+      paymentMethod: entry.paymentMethod || 'CASH',
+      paymentFrequency: entry.paymentFrequency || 'DAILY',
+      chitLifting: entry.chitLifting || 'NO'
+    });
+    setShowPassbookForm(true);
   };
 
   // Calculate overview data from real data
   const safeCustomers = Array.isArray(customers) ? customers : [];
+  
+  // Calculate daily and monthly profits (simplified calculation)
+  const dailyProfits = safeCustomers.reduce((sum, customer) => {
+    if (customer.status === 'ACTIVE' && customer.amountPerDay) {
+      return sum + (customer.amountPerDay * 0.1); // Assuming 10% profit margin
+    }
+    return sum;
+  }, 0);
+  
+  const monthlyProfits = dailyProfits * 30; // Daily profits * 30 days
+  
   const overviewData = {
     totalCustomers: safeCustomers.length,
     activeChits: safeCustomers.filter(c => c.status === 'ACTIVE').length,
     totalCollectionToday: 0, // This would need to be calculated from collections
-    totalPendingAmount: safeCustomers.reduce((sum, customer) => sum + (customer.balance || 0), 0),
-    upcomingDues: safeCustomers.filter(c => c.status === 'ACTIVE').length, // Simplified
+    dailyProfits: dailyProfits,
+    monthlyProfits: monthlyProfits,
     chitAuctionUpdates: 0 // This would need to be calculated from auctions
   };
 
@@ -114,12 +280,6 @@ const AdminDashboard = () => {
     { id: 4, type: 'collection', customer: 'Sunita Patel', amount: 500, time: '8 hours ago' }
   ];
 
-  const upcomingDues = [
-    { id: 1, customer: 'Vikram Reddy', amount: 2500, dueDate: 'Today' },
-    { id: 2, customer: 'Anita Gupta', amount: 500, dueDate: 'Tomorrow' },
-    { id: 3, customer: 'Suresh Kumar', amount: 3000, dueDate: 'Dec 15' },
-    { id: 4, customer: 'Meera Joshi', amount: 1500, dueDate: 'Dec 16' }
-  ];
 
   return (
     <div className="space-y-6 h-full overflow-y-auto px-4 py-6">
@@ -193,11 +353,11 @@ const AdminDashboard = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Pending Amount</p>
-              <p className="text-2xl font-bold text-gray-900">₹{overviewData.totalPendingAmount.toLocaleString()}</p>
+              <p className="text-sm font-medium text-gray-600">Daily Profits</p>
+              <p className="text-2xl font-bold text-gray-900">₹{overviewData.dailyProfits.toLocaleString()}</p>
             </div>
-            <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-              <span className="text-2xl">⚠️</span>
+            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+              <span className="text-2xl">📈</span>
             </div>
           </div>
         </div>
@@ -205,11 +365,11 @@ const AdminDashboard = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Upcoming Dues</p>
-              <p className="text-2xl font-bold text-gray-900">{overviewData.upcomingDues}</p>
+              <p className="text-sm font-medium text-gray-600">Monthly Profits</p>
+              <p className="text-2xl font-bold text-gray-900">₹{overviewData.monthlyProfits.toLocaleString()}</p>
             </div>
-            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-              <span className="text-2xl">📅</span>
+            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+              <span className="text-2xl">💰</span>
             </div>
           </div>
         </div>
@@ -321,54 +481,30 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* Recent Activities and Upcoming Dues */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Activities */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Activities</h2>
-          <div className="space-y-3">
-            {recentActivities.map((activity) => (
-              <div key={activity.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <span className="text-lg">
-                    {activity.type === 'collection' ? '💰' : 
-                     activity.type === 'auction' ? '🔨' : '👤'}
-                  </span>
-                  <div>
-                    <p className="font-medium text-gray-900">{activity.customer}</p>
-                    <p className="text-sm text-gray-600 capitalize">{activity.type}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  {activity.amount > 0 && (
-                    <p className="font-medium text-gray-900">₹{activity.amount.toLocaleString()}</p>
-                  )}
-                  <p className="text-sm text-gray-500">{activity.time}</p>
+      {/* Recent Activities */}
+      <div className="bg-white p-6 rounded-lg shadow-sm border">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Activities</h2>
+        <div className="space-y-3">
+          {recentActivities.map((activity) => (
+            <div key={activity.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <span className="text-lg">
+                  {activity.type === 'collection' ? '💰' : 
+                   activity.type === 'auction' ? '🔨' : '👤'}
+                </span>
+                <div>
+                  <p className="font-medium text-gray-900">{activity.customer}</p>
+                  <p className="text-sm text-gray-600 capitalize">{activity.type}</p>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Upcoming Dues */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Upcoming Dues (Next 7 Days)</h2>
-          <div className="space-y-3">
-            {upcomingDues.map((due) => (
-              <div key={due.id} className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200">
-                <div className="flex items-center space-x-3">
-                  <span className="text-lg">📅</span>
-                  <div>
-                    <p className="font-medium text-gray-900">{due.customer}</p>
-                    <p className="text-sm text-gray-600">Due: {due.dueDate}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-medium text-orange-600">₹{due.amount.toLocaleString()}</p>
-                </div>
+              <div className="text-right">
+                {activity.amount > 0 && (
+                  <p className="font-medium text-gray-900">₹{activity.amount.toLocaleString()}</p>
+                )}
+                <p className="text-sm text-gray-500">{activity.time}</p>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -446,6 +582,165 @@ const AdminDashboard = () => {
                 </div>
               )}
 
+              {/* Add Passbook Entry Button */}
+              <div className="mb-6 flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-900">Passbook Entries</h3>
+                <button
+                  onClick={() => setShowPassbookForm(true)}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  + Add Manual Entry
+                </button>
+              </div>
+
+              {/* Add Passbook Entry Form Modal */}
+              {showPassbookForm && (
+                <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-60">
+                  <div className="bg-white p-6 rounded-lg shadow-xl max-w-4xl w-full mx-4">
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">
+                      {editingPassbookEntry ? 'Edit Passbook Entry' : 'Add Passbook Entry'}
+                    </h3>
+                    <form onSubmit={handlePassbookSubmit} className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
+                          <input
+                            type="number"
+                            name="month"
+                            value={passbookFormData.month}
+                            onChange={handlePassbookInputChange}
+                            required
+                            min="1"
+                            max="12"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                          <input
+                            type="date"
+                            name="date"
+                            value={passbookFormData.date}
+                            onChange={handlePassbookInputChange}
+                            required
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            {passbookFormData.paymentFrequency === 'MONTHLY' ? 'Monthly Payment (₹)' : 'Daily Payment (₹)'}
+                          </label>
+                          <input
+                            type="number"
+                            name="dailyPayment"
+                            value={passbookFormData.dailyPayment}
+                            onChange={handlePassbookInputChange}
+                            required
+                            min="0"
+                            step="0.01"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹)</label>
+                          <input
+                            type="number"
+                            name="amount"
+                            value={passbookFormData.amount}
+                            onChange={handlePassbookInputChange}
+                            required
+                            min="0"
+                            step="0.01"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Chitti Amount (₹)</label>
+                          <input
+                            type="number"
+                            name="chittiAmount"
+                            value={passbookFormData.chittiAmount}
+                            onChange={handlePassbookInputChange}
+                            required
+                            min="0"
+                            step="0.01"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                          <select
+                            name="paymentMethod"
+                            value={passbookFormData.paymentMethod}
+                            onChange={handlePassbookInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="CASH">Cash</option>
+                            <option value="BANK_TRANSFER">Bank Transfer</option>
+                            <option value="UPI">UPI</option>
+                            <option value="CHEQUE">Cheque</option>
+                            <option value="NOT_PAID">Not Paid</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Payment Frequency</label>
+                          <select
+                            name="paymentFrequency"
+                            value={passbookFormData.paymentFrequency}
+                            onChange={handlePassbookInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="DAILY">Daily</option>
+                            <option value="MONTHLY">Monthly</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Chit Lifting</label>
+                          <select
+                            name="chitLifting"
+                            value={passbookFormData.chitLifting}
+                            onChange={handlePassbookInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="NO">No</option>
+                            <option value="YES">Yes</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end space-x-3 pt-4">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowPassbookForm(false);
+                            setEditingPassbookEntry(null);
+                            resetPassbookForm();
+                          }}
+                          disabled={isPassbookSubmitting}
+                          className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isPassbookSubmitting || passbookLoading}
+                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                        >
+                          {isPassbookSubmitting ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              {editingPassbookEntry ? 'Updating...' : 'Adding...'}
+                            </>
+                          ) : (
+                            editingPassbookEntry ? 'Update Entry' : 'Add Entry'
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
               {/* Passbook Entries Table */}
               <div className="bg-white rounded-lg shadow-sm border mb-6">
                 <div className="px-6 py-4 border-b border-gray-200">
@@ -463,7 +758,9 @@ const AdminDashboard = () => {
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chitti Amount</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Frequency</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chit Lifting</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
@@ -516,6 +813,15 @@ const AdminDashboard = () => {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm">
                                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                  entry.chitLifting === 'YES' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {entry.chitLifting || 'NO'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                                   entry.type === 'GENERATED' 
                                     ? 'bg-blue-100 text-blue-800' 
                                     : 'bg-green-100 text-green-800'
@@ -523,11 +829,39 @@ const AdminDashboard = () => {
                                   {entry.type}
                                 </span>
                               </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                {entry.type === 'MANUAL' ? (
+                                  <div className="flex space-x-2">
+                                    <button
+                                      onClick={() => handleEditPassbookEntry(entry)}
+                                      className="text-blue-600 hover:text-blue-900"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeletePassbookEntry(entry.id)}
+                                      disabled={isPassbookDeleting}
+                                      className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                                    >
+                                      {isPassbookDeleting ? (
+                                        <>
+                                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600 mr-1"></div>
+                                          Deleting...
+                                        </>
+                                      ) : (
+                                        'Delete'
+                                      )}
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-500">-</span>
+                                )}
+                              </td>
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
+                            <td colSpan="10" className="px-6 py-8 text-center text-gray-500">
                               {passbookLoading ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
@@ -561,6 +895,20 @@ const AdminDashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Toast Container */}
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
     </div>
   );
 };

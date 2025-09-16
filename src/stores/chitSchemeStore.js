@@ -11,6 +11,10 @@ export const useChitSchemeStore = create((set) => ({
   showCreateForm: false,
   editingScheme: null,
   showMembersModal: false,
+  schemeMembers: [],
+  membersLoading: false,
+  membersError: null,
+  membersStats: null,
 
   // Actions
   setLoading: (loading) => set({ loading }),
@@ -196,6 +200,56 @@ export const useChitSchemeStore = create((set) => ({
       return await response.json();
     } catch (error) {
       set({ error: error.message });
+      throw error;
+    }
+  },
+
+  // Fetch scheme members
+  fetchSchemeMembers: async (schemeId, filters = {}) => {
+    set({ membersLoading: true, membersError: null });
+    try {
+      const token = localStorage.getItem('token');
+      const queryParams = new URLSearchParams();
+      
+      if (filters.page) queryParams.append('page', filters.page);
+      if (filters.limit) queryParams.append('limit', filters.limit);
+      if (filters.status) queryParams.append('status', filters.status);
+      if (filters.group) queryParams.append('group', filters.group);
+      if (filters.search) queryParams.append('search', filters.search);
+      if (filters.sortBy) queryParams.append('sortBy', filters.sortBy);
+      if (filters.sortOrder) queryParams.append('sortOrder', filters.sortOrder);
+
+      const url = `${API_BASE_URL}/chit-schemes/${schemeId}/members?${queryParams.toString()}`;
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch scheme members');
+      }
+
+      const data = await response.json();
+      
+      set({
+        schemeMembers: data.data?.members || [],
+        membersStats: data.data?.stats || null,
+        membersLoading: false
+      });
+
+      return data.data;
+    } catch (error) {
+      console.error('Error fetching scheme members:', error);
+      set({ 
+        membersError: error.message, 
+        membersLoading: false,
+        schemeMembers: [],
+        membersStats: null
+      });
       throw error;
     }
   },

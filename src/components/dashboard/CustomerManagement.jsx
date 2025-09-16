@@ -48,7 +48,6 @@ const CustomerManagement = () => {
   // Local state for filters
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [groupFilter, setGroupFilter] = useState('all');
   const [schemeFilter, setSchemeFilter] = useState('all');
   const [editingPassbookEntry, setEditingPassbookEntry] = useState(null);
   
@@ -69,7 +68,6 @@ const CustomerManagement = () => {
     amountPerDay: '',
     duration: '',
     durationType: 'MONTHS',
-    group: 'Group A',
     status: 'ACTIVE',
     photo: ''
   });
@@ -95,13 +93,11 @@ const CustomerManagement = () => {
     const params = {};
     if (searchTerm) params.search = searchTerm;
     if (statusFilter !== 'all') params.status = statusFilter;
-    if (groupFilter !== 'all') params.group = groupFilter;
     if (schemeFilter !== 'all') params.schemeId = schemeFilter;
 
     fetchCustomers(params);
-  }, [searchTerm, statusFilter, groupFilter, schemeFilter, fetchCustomers]);
+  }, [searchTerm, statusFilter, schemeFilter, fetchCustomers]);
 
-  const groups = ['Group A', 'Group B', 'Group C'];
 
   // Helper function to get scheme name by ID
   const getSchemeName = (schemeId) => {
@@ -247,7 +243,6 @@ const CustomerManagement = () => {
         amountPerDay: parseInt(formData.amountPerDay) || 0,
         duration: parseInt(formData.duration) || 0,
         durationType: formData.durationType?.toUpperCase() || 'MONTHS',
-        group: formData.group,
         status: formData.status,
         photo: formData.photo || null
       };
@@ -282,7 +277,6 @@ const CustomerManagement = () => {
       amountPerDay: '',
       duration: '',
         durationType: 'MONTHS',
-      group: 'Group A',
         status: 'ACTIVE',
         photo: ''
     });
@@ -392,7 +386,8 @@ const CustomerManagement = () => {
       chittiAmount: entry.chittiAmount.toString(),
       type: entry.type,
       paymentMethod: entry.paymentMethod || 'CASH',
-      paymentFrequency: entry.paymentFrequency || 'DAILY'
+      paymentFrequency: entry.paymentFrequency || 'DAILY',
+      chitLifting: entry.chitLifting || 'NO'
     });
     setShowPassbookForm(true);
   };
@@ -456,7 +451,7 @@ const CustomerManagement = () => {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:w-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:w-auto">
             <div className="md:w-48">
               <select
                 value={statusFilter}
@@ -467,18 +462,6 @@ const CustomerManagement = () => {
                 <option value="ACTIVE">Active</option>
                 <option value="COMPLETED">Completed</option>
                 <option value="DEFAULTED">Defaulted</option>
-              </select>
-            </div>
-            <div className="md:w-48">
-              <select
-                value={groupFilter}
-                onChange={(e) => setGroupFilter(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">All Groups</option>
-                {groups.map((group) => (
-                  <option key={group} value={group}>{group}</option>
-                ))}
               </select>
             </div>
             <div className="md:w-48">
@@ -499,7 +482,6 @@ const CustomerManagement = () => {
               onClick={() => {
                 setSearchTerm('');
                 setStatusFilter('all');
-                setGroupFilter('all');
                 setSchemeFilter('all');
               }}
               className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
@@ -581,7 +563,7 @@ const CustomerManagement = () => {
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
-                </div>
+              </div>
 
                 <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Last Date</label>
@@ -589,28 +571,13 @@ const CustomerManagement = () => {
                   type="date"
                   name="lastDate"
                   value={formData.lastDate}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
-              </div>
+                </div>
                 
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Group</label>
-                  <select
-                    name="group"
-                    value={formData.group}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    {groups.map((group) => (
-                      <option key={group} value={group}>{group}</option>
-                    ))}
-                  </select>
-                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                   <select
@@ -619,11 +586,10 @@ const CustomerManagement = () => {
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="ACTIVE">Active</option>
-                    <option value="COMPLETED">Completed</option>
-                    <option value="DEFAULTED">Defaulted</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="DEFAULTED">Defaulted</option>
                   </select>
-                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -745,7 +711,6 @@ const CustomerManagement = () => {
                       amountPerDay: '',
                       duration: '',
                       durationType: 'MONTHS',
-                      group: 'Group A',
                       status: 'ACTIVE',
                       photo: ''
                     });
@@ -777,29 +742,6 @@ const CustomerManagement = () => {
 
       {/* Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-x-auto">
-        {/* Group Statistics */}
-        {groups.map((group) => {
-          const groupCustomers = safeCustomers.filter(customer => customer.group === group);
-          const activeCustomers = groupCustomers.filter(customer => customer.status === 'ACTIVE').length;
-          const totalBalance = groupCustomers.reduce((sum, customer) => sum + (customer.balance || 0), 0);
-          
-          return (
-            <div key={group} className="bg-white p-6 rounded-lg shadow-sm border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">{group}</p>
-                  <p className="text-2xl font-bold text-gray-900">{groupCustomers.length}</p>
-                  <p className="text-sm text-gray-500">{activeCustomers} active</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">Total Balance</p>
-                  <p className="text-lg font-semibold text-gray-900">₹{totalBalance.toLocaleString()}</p>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        
         {/* Scheme Statistics */}
         {chitSchemes.map((scheme) => {
           const schemeCustomers = safeCustomers.filter(customer => customer.schemeId === scheme.id);
@@ -827,22 +769,7 @@ const CustomerManagement = () => {
       {/* Members Table */}
       <div className="bg-white rounded-lg shadow-sm border">
         <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold text-gray-900">Members</h2>
-            <div className="flex items-center space-x-4">
-              <label className="text-sm font-medium text-gray-700">Chit Group:</label>
-              <select 
-                value={groupFilter}
-                onChange={(e) => setGroupFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">All Groups</option>
-                {groups.map((group) => (
-                  <option key={group} value={group}>{group}</option>
-                ))}
-              </select>
-            </div>
-          </div>
         </div>
         <div className="overflow-x-auto">
           <div className="max-h-96 overflow-y-auto">
@@ -855,7 +782,6 @@ const CustomerManagement = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chit Scheme</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chit Group</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Paid</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pending Due</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Date</th>
@@ -900,9 +826,6 @@ const CustomerManagement = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {getSchemeName(customer.schemeId)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {customer.group}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     ₹{((customer.amountPerDay || 0) * (customer.duration || 0) - (customer.balance || 0)).toLocaleString()}
@@ -1035,106 +958,116 @@ const CustomerManagement = () => {
               {/* Add Passbook Entry Form Modal */}
               {showPassbookForm && (
                 <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-60">
-                  <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+                  <div className="bg-white p-6 rounded-lg shadow-xl max-w-4xl w-full mx-4">
                     <h3 className="text-xl font-bold text-gray-900 mb-4">
                       {editingPassbookEntry ? 'Edit Passbook Entry' : 'Add Passbook Entry'}
                     </h3>
                     <form onSubmit={handlePassbookSubmit} className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
-                        <input
-                          type="number"
-                          name="month"
-                          value={passbookFormData.month}
-                          onChange={handlePassbookInputChange}
-                          required
-                          min="1"
-                          max="12"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                        <input
-                          type="date"
-                          name="date"
-                          value={passbookFormData.date}
-                          onChange={handlePassbookInputChange}
-                          required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          {passbookFormData.paymentFrequency === 'MONTHLY' ? 'Monthly Payment (₹)' : 'Daily Payment (₹)'}
-                        </label>
-                        <input
-                          type="number"
-                          name="dailyPayment"
-                          value={passbookFormData.dailyPayment}
-                          onChange={handlePassbookInputChange}
-                          required
-                          min="0"
-                          step="0.01"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹)</label>
-                        <input
-                          type="number"
-                          name="amount"
-                          value={passbookFormData.amount}
-                          onChange={handlePassbookInputChange}
-                          required
-                          min="0"
-                          step="0.01"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Chitti Amount (₹)</label>
-                        <input
-                          type="number"
-                          name="chittiAmount"
-                          value={passbookFormData.chittiAmount}
-                          onChange={handlePassbookInputChange}
-                          required
-                          min="0"
-                          step="0.01"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                      </div>
-                      
-                      {/* Payment Method */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
-                        <select
-                          name="paymentMethod"
-                          value={passbookFormData.paymentMethod}
-                          onChange={handlePassbookInputChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                          <option value="CASH">Cash</option>
-                          <option value="BANK_TRANSFER">Bank Transfer</option>
-                          <option value="UPI">UPI</option>
-                          <option value="CHEQUE">Cheque</option>
-                          <option value="NOT_PAID">Not Paid</option>
-                        </select>
-                      </div>
-
-                      {/* Payment Frequency */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Payment Frequency</label>
-                        <select
-                          name="paymentFrequency"
-                          value={passbookFormData.paymentFrequency}
-                          onChange={handlePassbookInputChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                          <option value="DAILY">Daily</option>
-                          <option value="MONTHLY">Monthly</option>
-                        </select>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
+                          <input
+                            type="number"
+                            name="month"
+                            value={passbookFormData.month}
+                            onChange={handlePassbookInputChange}
+                            required
+                            min="1"
+                            max="12"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                          <input
+                            type="date"
+                            name="date"
+                            value={passbookFormData.date}
+                            onChange={handlePassbookInputChange}
+                            required
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            {passbookFormData.paymentFrequency === 'MONTHLY' ? 'Monthly Payment (₹)' : 'Daily Payment (₹)'}
+                          </label>
+                          <input
+                            type="number"
+                            name="dailyPayment"
+                            value={passbookFormData.dailyPayment}
+                            onChange={handlePassbookInputChange}
+                            required
+                            min="0"
+                            step="0.01"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹)</label>
+                          <input
+                            type="number"
+                            name="amount"
+                            value={passbookFormData.amount}
+                            onChange={handlePassbookInputChange}
+                            required
+                            min="0"
+                            step="0.01"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Chitti Amount (₹)</label>
+                          <input
+                            type="number"
+                            name="chittiAmount"
+                            value={passbookFormData.chittiAmount}
+                            onChange={handlePassbookInputChange}
+                            required
+                            min="0"
+                            step="0.01"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                          <select
+                            name="paymentMethod"
+                            value={passbookFormData.paymentMethod}
+                            onChange={handlePassbookInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="CASH">Cash</option>
+                            <option value="BANK_TRANSFER">Bank Transfer</option>
+                            <option value="UPI">UPI</option>
+                            <option value="CHEQUE">Cheque</option>
+                            <option value="NOT_PAID">Not Paid</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Payment Frequency</label>
+                          <select
+                            name="paymentFrequency"
+                            value={passbookFormData.paymentFrequency}
+                            onChange={handlePassbookInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="DAILY">Daily</option>
+                            <option value="MONTHLY">Monthly</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Chit Lifting</label>
+                          <select
+                            name="chitLifting"
+                            value={passbookFormData.chitLifting}
+                            onChange={handlePassbookInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="NO">No</option>
+                            <option value="YES">Yes</option>
+                          </select>
+                        </div>
                       </div>
 
                       <div className="flex justify-end space-x-3 pt-4">
@@ -1187,6 +1120,7 @@ const CustomerManagement = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chitti Amount</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Frequency</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chit Lifting</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
@@ -1195,24 +1129,24 @@ const CustomerManagement = () => {
                       {passbookEntries && passbookEntries.length > 0 ? (
                         passbookEntries.map((entry) => (
                           <tr key={entry.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {entry.month}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {new Date(entry.date).toLocaleDateString('en-GB')}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               <div>
                                 <div className="font-medium">₹{entry.dailyPayment.toLocaleString()}</div>
                                 <div className="text-xs text-gray-500">
                                   {entry.paymentFrequency === 'MONTHLY' ? 'Monthly' : 'Daily'} Payment
                                 </div>
                               </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             ₹{entry.amount.toLocaleString()}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             ₹{entry.chittiAmount.toLocaleString()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -1237,6 +1171,15 @@ const CustomerManagement = () => {
                                   : 'bg-orange-100 text-orange-800'
                               }`}>
                                 {entry.paymentFrequency || 'DAILY'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                entry.chitLifting === 'YES' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {entry.chitLifting || 'NO'}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -1275,12 +1218,12 @@ const CustomerManagement = () => {
                               ) : (
                                 <span className="text-gray-500">-</span>
                               )}
-                          </td>
-                        </tr>
+                            </td>
+                          </tr>
                         ))
                       ) : (
                         <tr>
-                          <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                          <td colSpan="10" className="px-6 py-8 text-center text-gray-500">
                             {passbookLoading ? (
                               <div className="flex items-center justify-center">
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>

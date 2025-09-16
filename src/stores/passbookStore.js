@@ -17,7 +17,8 @@ const usePassbookStore = create((set, get) => ({
     chittiAmount: '',
     type: 'MANUAL',
     paymentMethod: 'CASH',
-    paymentFrequency: 'DAILY'
+    paymentFrequency: 'DAILY',
+    chitLifting: 'NO'
   },
 
   // Actions
@@ -34,7 +35,8 @@ const usePassbookStore = create((set, get) => ({
       chittiAmount: '',
       type: 'MANUAL',
       paymentMethod: 'CASH',
-      paymentFrequency: 'DAILY'
+      paymentFrequency: 'DAILY',
+      chitLifting: 'NO'
     }
   }),
 
@@ -108,7 +110,8 @@ const usePassbookStore = create((set, get) => ({
         chittiAmount: parseInt(entryData.chittiAmount),
         type: entryData.type || 'MANUAL',
         paymentMethod: entryData.paymentMethod || 'CASH',
-        paymentFrequency: entryData.paymentFrequency || 'DAILY'
+        paymentFrequency: entryData.paymentFrequency || 'DAILY',
+        chitLifting: entryData.chitLifting || 'NO'
       };
       
       console.log('Creating passbook entry with payload:', payload);
@@ -170,7 +173,8 @@ const usePassbookStore = create((set, get) => ({
         amount: parseInt(entryData.amount),
         chittiAmount: parseInt(entryData.chittiAmount),
         paymentMethod: entryData.paymentMethod || 'CASH',
-        paymentFrequency: entryData.paymentFrequency || 'DAILY'
+        paymentFrequency: entryData.paymentFrequency || 'DAILY',
+        chitLifting: entryData.chitLifting || 'NO'
       };
       
       console.log('Updating passbook entry with payload:', payload);

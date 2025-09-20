@@ -4,17 +4,19 @@ import 'react-toastify/dist/ReactToastify.css';
 import useCustomerStore from '../../stores/customerStore';
 import usePassbookStore from '../../stores/passbookStore';
 
-const AdminDashboard = () => {
+const AdminDashboard = ({ onNavigate }) => {
   // Customer store
   const {
     customers,
+    chitSchemes,
     loading: customersLoading,
     error: customersError,
     selectedCustomer,
     showPassbookModal,
     setShowPassbookModal,
     setSelectedCustomer,
-    fetchCustomers
+    fetchCustomers,
+    fetchChitSchemes
   } = useCustomerStore();
 
   // Passbook store
@@ -47,13 +49,16 @@ const AdminDashboard = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        await fetchCustomers();
+        await Promise.all([
+          fetchCustomers(),
+          fetchChitSchemes()
+        ]);
       } catch (error) {
-        console.error('Error loading customers:', error);
+        console.error('Error loading data:', error);
       }
     };
     loadData();
-  }, [fetchCustomers]);
+  }, [fetchCustomers, fetchChitSchemes]);
 
   // Click outside handler to close search results
   useEffect(() => {
@@ -105,57 +110,124 @@ const AdminDashboard = () => {
   // Helper function to handle API errors and show toast notifications
   const handleApiError = (error, defaultMessage = 'An error occurred') => {
     console.error('API Error:', error);
+    console.error('Error response:', error.response?.data);
+    console.error('Error status:', error.response?.status);
+    
+    // Handle network errors
+    if (!error.response) {
+      toast.error('Network error: Please check your internet connection', {
+        position: "top-right",
+        autoClose: 7000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+      return;
+    }
     
     if (error.response?.data) {
-      const { success, message, errors } = error.response.data;
+      const { success, message, errors, error: serverError } = error.response.data;
       
-      if (!success && errors && Array.isArray(errors)) {
-        // Handle validation errors - show each error message
-        errors.forEach(errorItem => {
+      // Handle validation errors - show each error message
+      if (!success && errors && Array.isArray(errors) && errors.length > 0) {
+        errors.forEach((errorItem, index) => {
           const fieldName = errorItem.path || 'Field';
           const errorMessage = errorItem.msg || 'Invalid value';
-          toast.error(`${fieldName}: ${errorMessage}`, {
+          
+          // Show field-specific error with better formatting
+          const displayMessage = fieldName === 'Field' ? errorMessage : `${fieldName}: ${errorMessage}`;
+          
+          toast.error(displayMessage, {
             position: "top-right",
-            autoClose: 5000,
+            autoClose: 6000,
             hideProgressBar: false,
             closeOnClick: true,
             pauseOnHover: true,
             draggable: true,
+            toastId: `validation-error-${index}`, // Prevent duplicate toasts
           });
         });
-      } else if (message) {
-        // Handle general error messages
+      } 
+      // Handle server error messages
+      else if (message) {
         toast.error(message, {
           position: "top-right",
-          autoClose: 5000,
+          autoClose: 6000,
           hideProgressBar: false,
           closeOnClick: true,
           pauseOnHover: true,
           draggable: true,
         });
-      } else {
-        toast.error(defaultMessage, {
+      } 
+      // Handle server error field
+      else if (serverError) {
+        toast.error(serverError, {
           position: "top-right",
-          autoClose: 5000,
+          autoClose: 6000,
           hideProgressBar: false,
           closeOnClick: true,
           pauseOnHover: true,
           draggable: true,
         });
       }
-    } else if (error.message) {
+      // Handle HTTP status specific errors
+      else {
+        const status = error.response.status;
+        let statusMessage = defaultMessage;
+        
+        switch (status) {
+          case 400:
+            statusMessage = 'Bad Request: Please check your input data';
+            break;
+          case 401:
+            statusMessage = 'Unauthorized: Please login again';
+            break;
+          case 403:
+            statusMessage = 'Forbidden: You do not have permission to perform this action';
+            break;
+          case 404:
+            statusMessage = 'Not Found: The requested resource was not found';
+            break;
+          case 409:
+            statusMessage = 'Conflict: This action conflicts with existing data';
+            break;
+          case 422:
+            statusMessage = 'Validation Error: Please check your input data';
+            break;
+          case 500:
+            statusMessage = 'Server Error: Please try again later';
+            break;
+          default:
+            statusMessage = `Error ${status}: ${defaultMessage}`;
+        }
+        
+        toast.error(statusMessage, {
+          position: "top-right",
+          autoClose: 6000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+      }
+    } 
+    // Handle error message from error object
+    else if (error.message) {
       toast.error(error.message, {
         position: "top-right",
-        autoClose: 5000,
+        autoClose: 6000,
         hideProgressBar: false,
         closeOnClick: true,
         pauseOnHover: true,
         draggable: true,
       });
-    } else {
+    } 
+    // Fallback to default message
+    else {
       toast.error(defaultMessage, {
         position: "top-right",
-        autoClose: 5000,
+        autoClose: 6000,
         hideProgressBar: false,
         closeOnClick: true,
         pauseOnHover: true,
@@ -247,31 +319,69 @@ const AdminDashboard = () => {
   // Calculate overview data from real data
   const safeCustomers = Array.isArray(customers) ? customers : [];
   
-  // Calculate daily and monthly profits (simplified calculation)
+  // Calculate daily and monthly profits based on actual scheme commission rates
   const dailyProfits = safeCustomers.reduce((sum, customer) => {
     if (customer.status === 'ACTIVE' && customer.amountPerDay) {
-      return sum + (customer.amountPerDay * 0.1); // Assuming 10% profit margin
+      // Find the chit scheme for this customer
+      const scheme = chitSchemes.find(s => s.id === customer.schemeId);
+      if (scheme) {
+        // Use scheme's commission rate, default to 5% if not set
+        const commissionRate = scheme.commissionRate || 0.05;
+        return sum + (customer.amountPerDay * commissionRate);
+      }
+      // Fallback to 5% if scheme not found
+      return sum + (customer.amountPerDay * 0.05);
     }
     return sum;
   }, 0);
   
-  const monthlyProfits = dailyProfits * 30; // Daily profits * 30 days
+  // Calculate monthly profits based on actual days in current month
+  const currentDate = new Date();
+  const daysInCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+  const monthlyProfits = dailyProfits * daysInCurrentMonth;
   
+  // Calculate additional profit metrics
+  const totalExpectedDailyCollection = safeCustomers
+    .filter(c => c.status === 'ACTIVE')
+    .reduce((sum, customer) => sum + (customer.amountPerDay || 0), 0);
+  
+  const totalExpectedMonthlyCollection = totalExpectedDailyCollection * daysInCurrentMonth;
+  
+  // Calculate profit percentage
+  const dailyProfitPercentage = totalExpectedDailyCollection > 0 
+    ? ((dailyProfits / totalExpectedDailyCollection) * 100).toFixed(2)
+    : 0;
+  
+  const monthlyProfitPercentage = totalExpectedMonthlyCollection > 0 
+    ? ((monthlyProfits / totalExpectedMonthlyCollection) * 100).toFixed(2)
+    : 0;
+
   const overviewData = {
     totalCustomers: safeCustomers.length,
     activeChits: safeCustomers.filter(c => c.status === 'ACTIVE').length,
     totalCollectionToday: 0, // This would need to be calculated from collections
     dailyProfits: dailyProfits,
     monthlyProfits: monthlyProfits,
+    dailyProfitPercentage: parseFloat(dailyProfitPercentage),
+    monthlyProfitPercentage: parseFloat(monthlyProfitPercentage),
+    totalExpectedDailyCollection: totalExpectedDailyCollection,
+    totalExpectedMonthlyCollection: totalExpectedMonthlyCollection,
     chitAuctionUpdates: 0 // This would need to be calculated from auctions
   };
 
   const quickActions = [
-    { id: 1, title: 'Add New Customer', icon: '👤', color: 'bg-blue-500' },
-    { id: 2, title: 'Create New Chit Scheme', icon: '📋', color: 'bg-green-500' },
-    { id: 3, title: 'Record Collection', icon: '💰', color: 'bg-yellow-500' },
-    { id: 4, title: 'Generate Reports', icon: '📊', color: 'bg-purple-500' }
+    { id: 1, title: 'Add New Customer', icon: '👤', color: 'bg-blue-500', tab: 'customers' },
+    { id: 2, title: 'Create New Chit Scheme', icon: '📋', color: 'bg-green-500', tab: 'schemes' },
+    { id: 3, title: 'Record Collection', icon: '💰', color: 'bg-yellow-500', tab: 'collections' },
+    { id: 4, title: 'Generate Reports', icon: '📊', color: 'bg-purple-500', tab: 'reports' }
   ];
+
+  // Handle quick action button clicks
+  const handleQuickAction = (action) => {
+    if (onNavigate) {
+      onNavigate(action.tab);
+    }
+  };
 
   const recentActivities = [
     { id: 1, type: 'collection', customer: 'Rajesh Kumar', amount: 2500, time: '2 hours ago' },
@@ -313,7 +423,7 @@ const AdminDashboard = () => {
       )}
 
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
@@ -355,6 +465,9 @@ const AdminDashboard = () => {
             <div>
               <p className="text-sm font-medium text-gray-600">Daily Profits</p>
               <p className="text-2xl font-bold text-gray-900">₹{overviewData.dailyProfits.toLocaleString()}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {overviewData.dailyProfitPercentage}% of ₹{overviewData.totalExpectedDailyCollection.toLocaleString()}
+              </p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <span className="text-2xl">📈</span>
@@ -367,6 +480,9 @@ const AdminDashboard = () => {
             <div>
               <p className="text-sm font-medium text-gray-600">Monthly Profits</p>
               <p className="text-2xl font-bold text-gray-900">₹{overviewData.monthlyProfits.toLocaleString()}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {overviewData.monthlyProfitPercentage}% of ₹{overviewData.totalExpectedMonthlyCollection.toLocaleString()}
+              </p>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
               <span className="text-2xl">💰</span>
@@ -374,7 +490,7 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
+        {/* <div className="bg-white p-6 rounded-lg shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Auction Updates</p>
@@ -384,7 +500,7 @@ const AdminDashboard = () => {
               <span className="text-2xl">🔨</span>
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Quick Actions */}
@@ -470,7 +586,8 @@ const AdminDashboard = () => {
           {quickActions.map((action) => (
             <button
               key={action.id}
-              className={`${action.color} text-white p-4 rounded-lg hover:opacity-90 transition-opacity`}
+              onClick={() => handleQuickAction(action)}
+              className={`${action.color} text-white p-4 rounded-lg hover:opacity-90 transition-opacity cursor-pointer`}
             >
               <div className="flex items-center space-x-3">
                 <span className="text-2xl">{action.icon}</span>

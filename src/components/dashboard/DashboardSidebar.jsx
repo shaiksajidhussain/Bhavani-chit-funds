@@ -1,6 +1,6 @@
 import React from 'react';
 
-const DashboardSidebar = ({ activeTab, setActiveTab, userType }) => {
+const DashboardSidebar = ({ activeTab, setActiveTab, userType, isOpen, setIsOpen }) => {
   const adminMenuItems = [
     { id: 'overview', label: 'Overview', icon: '📊' },
     { id: 'customers', label: 'Customer Management', icon: '👥' },
@@ -37,8 +37,22 @@ const DashboardSidebar = ({ activeTab, setActiveTab, userType }) => {
   const menuItems = getMenuItems();
 
   return (
-    <div className="fixed left-0 top-16 h-full w-64 bg-white shadow-lg z-10" style={{ height: 'calc(100vh - 4rem)' }}>
-      <div className="p-6">
+    <>
+      {/* Mobile Overlay */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/45 bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <div className={`
+        fixed left-0 top-16 h-full w-64 bg-white shadow-lg z-50 transition-transform duration-300 ease-in-out
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        lg:translate-x-0
+      `} style={{ height: 'calc(100vh - 4rem)' }}>
+        <div className="p-6">
         <div className="flex items-center space-x-2 mb-8">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-lg">B</span>
@@ -47,38 +61,17 @@ const DashboardSidebar = ({ activeTab, setActiveTab, userType }) => {
         </div>
         
         <div className="mb-6">
-          <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">User Type</div>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => setUserType('admin')}
-              className={`px-3 py-1 text-xs rounded-full ${
-                userType === 'admin' 
-                  ? 'bg-blue-100 text-blue-700' 
-                  : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              Admin
-            </button>
-            <button
-              onClick={() => setUserType('agent')}
-              className={`px-3 py-1 text-xs rounded-full ${
-                userType === 'agent' 
-                  ? 'bg-green-100 text-green-700' 
-                  : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              Agent
-            </button>
-            <button
-              onClick={() => setUserType('customer')}
-              className={`px-3 py-1 text-xs rounded-full ${
-                userType === 'customer' 
-                  ? 'bg-purple-100 text-purple-700' 
-                  : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              Customer
-            </button>
+          <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">User Role</div>
+          <div className="px-3 py-2 bg-gray-100 rounded-lg">
+            <span className={`text-sm font-medium ${
+              userType === 'admin' ? 'text-blue-700' :
+              userType === 'agent' ? 'text-green-700' :
+              'text-purple-700'
+            }`}>
+              {userType === 'admin' ? 'Administrator' :
+               userType === 'agent' ? 'Agent' :
+               'Customer'}
+            </span>
           </div>
         </div>
 
@@ -98,8 +91,9 @@ const DashboardSidebar = ({ activeTab, setActiveTab, userType }) => {
             </button>
           ))}
         </nav>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

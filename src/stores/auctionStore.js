@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import apiConfig from '../components/Config';
 
 const useAuctionStore = create((set, get) => ({
   // State
@@ -63,7 +64,7 @@ const useAuctionStore = create((set, get) => ({
       if (filters.sortBy) queryParams.append('sortBy', filters.sortBy);
       if (filters.sortOrder) queryParams.append('sortOrder', filters.sortOrder);
 
-      const response = await fetch(`http://localhost:5001/api/auctions?${queryParams}`, {
+      const response = await fetch(`${apiConfig.baseUrl}/auctions?${queryParams}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
@@ -98,7 +99,7 @@ const useAuctionStore = create((set, get) => ({
   fetchAuctionById: async (id) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`http://localhost:5001/api/auctions/${id}`, {
+      const response = await fetch(`${apiConfig.baseUrl}/auctions/${id}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
@@ -169,7 +170,7 @@ const useAuctionStore = create((set, get) => ({
       console.log('Creating auction with data:', dataToSend);
       console.log('Form data received:', auctionData);
 
-      const response = await fetch('http://localhost:5001/api/auctions', {
+      const response = await fetch(`${apiConfig.baseUrl}/auctions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -241,11 +242,11 @@ const useAuctionStore = create((set, get) => ({
 
       console.log('Updating auction with data:', dataToSend);
 
-      const response = await fetch(`http://localhost:5001/api/auctions/${id}`, {
+      const response = await fetch(`${apiConfig.baseUrl}/auctions/${id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json'  
         },
         body: JSON.stringify(dataToSend)
       });
@@ -282,7 +283,7 @@ const useAuctionStore = create((set, get) => ({
   deleteAuction: async (id) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`http://localhost:5001/api/auctions/${id}`, {
+      const response = await fetch(`${apiConfig.baseUrl}/auctions/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -321,7 +322,7 @@ const useAuctionStore = create((set, get) => ({
   // Fetch chit schemes for dropdown
   fetchChitSchemes: async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/chit-schemes', {
+      const response = await fetch(`${apiConfig.baseUrl}/chit-schemes`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
@@ -353,7 +354,7 @@ const useAuctionStore = create((set, get) => ({
   // Fetch members for dropdown
   fetchMembers: async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/customers', {
+      const response = await fetch(`${apiConfig.baseUrl}/customers`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
@@ -386,7 +387,7 @@ const useAuctionStore = create((set, get) => ({
   fetchUpcomingAuctions: async (limit = 10) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`http://localhost:5001/api/auctions/upcoming/list?limit=${limit}`, {
+      const response = await fetch(`${apiConfig.baseUrl}/auctions/upcoming/list?limit=${limit}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'

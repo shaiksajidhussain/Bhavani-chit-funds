@@ -66,57 +66,124 @@ const ChitSchemeManagement = () => {
   // Helper function to handle API errors and show toast notifications
   const handleApiError = (error, defaultMessage = 'An error occurred') => {
     console.error('API Error:', error);
+    console.error('Error response:', error.response?.data);
+    console.error('Error status:', error.response?.status);
+    
+    // Handle network errors
+    if (!error.response) {
+      toast.error('Network error: Please check your internet connection', {
+        position: "top-right",
+        autoClose: 7000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+      return;
+    }
     
     if (error.response?.data) {
-      const { success, message, errors } = error.response.data;
+      const { success, message, errors, error: serverError } = error.response.data;
       
-      if (!success && errors && Array.isArray(errors)) {
-        // Handle validation errors - show each error message
-        errors.forEach(errorItem => {
+      // Handle validation errors - show each error message
+      if (!success && errors && Array.isArray(errors) && errors.length > 0) {
+        errors.forEach((errorItem, index) => {
           const fieldName = errorItem.path || 'Field';
           const errorMessage = errorItem.msg || 'Invalid value';
-          toast.error(`${fieldName}: ${errorMessage}`, {
+          
+          // Show field-specific error with better formatting
+          const displayMessage = fieldName === 'Field' ? errorMessage : `${fieldName}: ${errorMessage}`;
+          
+          toast.error(displayMessage, {
             position: "top-right",
-            autoClose: 5000,
+            autoClose: 6000,
             hideProgressBar: false,
             closeOnClick: true,
             pauseOnHover: true,
             draggable: true,
+            toastId: `validation-error-${index}`, // Prevent duplicate toasts
           });
         });
-      } else if (message) {
-        // Handle general error messages
+      } 
+      // Handle server error messages
+      else if (message) {
         toast.error(message, {
           position: "top-right",
-          autoClose: 5000,
+          autoClose: 6000,
           hideProgressBar: false,
           closeOnClick: true,
           pauseOnHover: true,
           draggable: true,
         });
-      } else {
-        toast.error(defaultMessage, {
+      } 
+      // Handle server error field
+      else if (serverError) {
+        toast.error(serverError, {
           position: "top-right",
-          autoClose: 5000,
+          autoClose: 6000,
           hideProgressBar: false,
           closeOnClick: true,
           pauseOnHover: true,
           draggable: true,
         });
       }
-    } else if (error.message) {
+      // Handle HTTP status specific errors
+      else {
+        const status = error.response.status;
+        let statusMessage = defaultMessage;
+        
+        switch (status) {
+          case 400:
+            statusMessage = 'Bad Request: Please check your input data';
+            break;
+          case 401:
+            statusMessage = 'Unauthorized: Please login again';
+            break;
+          case 403:
+            statusMessage = 'Forbidden: You do not have permission to perform this action';
+            break;
+          case 404:
+            statusMessage = 'Not Found: The requested resource was not found';
+            break;
+          case 409:
+            statusMessage = 'Conflict: This action conflicts with existing data';
+            break;
+          case 422:
+            statusMessage = 'Validation Error: Please check your input data';
+            break;
+          case 500:
+            statusMessage = 'Server Error: Please try again later';
+            break;
+          default:
+            statusMessage = `Error ${status}: ${defaultMessage}`;
+        }
+        
+        toast.error(statusMessage, {
+          position: "top-right",
+          autoClose: 6000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+      }
+    } 
+    // Handle error message from error object
+    else if (error.message) {
       toast.error(error.message, {
         position: "top-right",
-        autoClose: 5000,
+        autoClose: 6000,
         hideProgressBar: false,
         closeOnClick: true,
         pauseOnHover: true,
         draggable: true,
       });
-    } else {
+    } 
+    // Fallback to default message
+    else {
       toast.error(defaultMessage, {
         position: "top-right",
-        autoClose: 5000,
+        autoClose: 6000,
         hideProgressBar: false,
         closeOnClick: true,
         pauseOnHover: true,
@@ -265,13 +332,13 @@ const ChitSchemeManagement = () => {
 
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 lg:space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Chit Scheme Management</h1>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Chit Scheme Management</h1>
         <button
           onClick={() => setShowCreateForm(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto"
         >
           + Create New Scheme
         </button>
@@ -293,9 +360,9 @@ const ChitSchemeManagement = () => {
       )}
 
       {/* Predefined Schemes */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Predefined Schemes</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
+        <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Predefined Schemes</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
             <h3 className="font-semibold text-gray-900">₹5,00,000 - 30 months</h3>
             <p className="text-sm text-gray-600">₹500 daily - 30 members</p>
@@ -325,9 +392,9 @@ const ChitSchemeManagement = () => {
 
       {/* Create/Edit Form Modal */}
       {showCreateForm && (
-        <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+        <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-xl max-w-2xl w-full max-h-[95vh] overflow-y-auto">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">
               {editingScheme ? 'Edit Chit Scheme' : 'Create New Chit Scheme'}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -344,7 +411,7 @@ const ChitSchemeManagement = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Chit Value (₹)</label>
                   <input
@@ -369,7 +436,7 @@ const ChitSchemeManagement = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                   <input
@@ -406,7 +473,7 @@ const ChitSchemeManagement = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
                   <input
@@ -538,16 +605,16 @@ const ChitSchemeManagement = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scheme</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Amount</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Members</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scheme</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Value</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Duration</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Payment Type</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Payment Amount</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">Last Date</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Members</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Progress</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Status</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -560,43 +627,69 @@ const ChitSchemeManagement = () => {
               ) : (
                 safeSchemes.map((scheme) => (
                 <tr key={scheme.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                     <div>
                       <button
                         onClick={() => handleViewMembers(scheme)}
-                        className="text-sm font-medium text-blue-600 hover:text-blue-900 hover:underline cursor-pointer"
+                        className="text-sm font-medium text-blue-600 hover:text-blue-900 hover:underline cursor-pointer truncate block"
                       >
                         {scheme.name}
                       </button>
-                      <div className="text-sm text-gray-500">ID: {scheme.id}</div>
+                      <div className="text-xs text-gray-500">ID: {scheme.id}</div>
+                      {/* Mobile: Show key info below name */}
+                      <div className="sm:hidden mt-1 text-xs text-gray-600">
+                        <div>₹{(scheme.chitValue || 0).toLocaleString()}</div>
+                        <div>{scheme.duration || 0} {scheme.durationType ? scheme.durationType.toLowerCase() : 'months'}</div>
+                        <div className="mt-1">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(scheme.status)}`}>
+                            {scheme.status || 'Unknown'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden sm:table-cell">
                     ₹{(scheme.chitValue || 0).toLocaleString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden md:table-cell">
                     {scheme.duration || 0} {scheme.durationType ? scheme.durationType.toLowerCase() : 'months'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden lg:table-cell">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                       scheme.paymentType === 'DAILY' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
                     }`}>
                       {scheme.paymentType || 'DAILY'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden lg:table-cell">
                     {scheme.paymentType === 'MONTHLY' 
                       ? `₹${(scheme.monthlyPayment || 0).toLocaleString()}` 
                       : `₹${(scheme.dailyPayment || 0).toLocaleString()}`
                     }
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden xl:table-cell">
                     {scheme.lastDate ? new Date(scheme.lastDate).toLocaleDateString('en-GB') : '-'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {scheme.membersEnrolled || 0}/{scheme.numberOfMembers || 0}
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <div className="text-center">
+                      <div className="font-medium">{scheme.membersEnrolled || 0}/{scheme.numberOfMembers || 0}</div>
+                      {/* Mobile: Show progress bar below members count */}
+                      <div className="sm:hidden mt-1">
+                        <div className="flex items-center justify-center">
+                          <div className="w-12 bg-gray-200 rounded-full h-1.5 mr-1">
+                            <div 
+                              className="bg-blue-600 h-1.5 rounded-full" 
+                              style={{ width: `${getProgressPercentage(scheme.membersEnrolled, scheme.numberOfMembers)}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-xs text-gray-600">
+                            {getProgressPercentage(scheme.membersEnrolled, scheme.numberOfMembers)}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap hidden md:table-cell">
                     <div className="flex items-center">
                       <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                         <div 
@@ -609,28 +702,29 @@ const ChitSchemeManagement = () => {
                       </span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap hidden sm:table-cell">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(scheme.status)}`}>
                       {scheme.status || 'Unknown'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2">
                       <button
                         onClick={() => handleEdit(scheme)}
-                        className="text-blue-600 hover:text-blue-900"
+                        className="text-blue-600 hover:text-blue-900 text-xs sm:text-sm"
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => handleDelete(scheme.id)}
                         disabled={isDeleting}
-                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center text-xs sm:text-sm"
                       >
                         {isDeleting ? (
                           <>
                             <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600 mr-1"></div>
-                            Deleting...
+                            <span className="hidden sm:inline">Deleting...</span>
+                            <span className="sm:hidden">...</span>
                           </>
                         ) : (
                           'Delete'
@@ -648,11 +742,11 @@ const ChitSchemeManagement = () => {
 
       {/* Members Modal */}
       {showMembersModal && selectedScheme && (
-        <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">
+        <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[95vh] overflow-y-auto">
+            <div className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
                   Members - {selectedScheme.name}
                 </h2>
                 <button
@@ -665,7 +759,7 @@ const ChitSchemeManagement = () => {
 
               {/* Scheme Info Header */}
               <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
                     <span className="text-sm text-gray-600">Scheme ID:</span>
                     <p className="font-medium">{selectedScheme.id}</p>
@@ -683,7 +777,7 @@ const ChitSchemeManagement = () => {
                     <p className="font-medium">₹{(selectedScheme.dailyPayment || 0).toLocaleString()}</p>
                   </div>
                 </div>
-                <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div>
                     <span className="text-sm text-gray-600">Total Members:</span>
                     <p className="font-medium">{selectedScheme.numberOfMembers || 0}</p>
@@ -735,46 +829,57 @@ const ChitSchemeManagement = () => {
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">S. No</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member ID</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mobile</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Group</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Join Date</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount Paid</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">S. No</th>
+                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member ID</th>
+                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Mobile</th>
+                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Group</th>
+                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Join Date</th>
+                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">Amount Paid</th>
+                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">Balance</th>
+                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {schemeMembers && schemeMembers.length > 0 ? (
                           schemeMembers.map((member, index) => (
                             <tr key={member.id} className="hover:bg-gray-50">
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {index + 1}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 M{member.id.toString().padStart(4, '0')}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                {member.name}
+                              <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                <div>
+                                  <div className="truncate">{member.name}</div>
+                                  {/* Mobile: Show mobile number below name */}
+                                  <div className="sm:hidden text-xs text-gray-500 mt-1">
+                                    {member.mobile}
+                                  </div>
+                                  {/* Mobile: Show key financial info below name */}
+                                  <div className="sm:hidden text-xs text-gray-600 mt-1">
+                                    <div>Paid: ₹{((member.amountPerDay || 0) * (member.duration || 0) - (member.balance || 0)).toLocaleString()}</div>
+                                    <div>Balance: ₹{(member.balance || 0).toLocaleString()}</div>
+                                  </div>
+                                </div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden sm:table-cell">
                                 {member.mobile}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden md:table-cell">
                                 {member.group}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden lg:table-cell">
                                 {member.startDate ? new Date(member.startDate).toLocaleDateString('en-GB') : '-'}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden xl:table-cell">
                                 ₹{((member.amountPerDay || 0) * (member.duration || 0) - (member.balance || 0)).toLocaleString()}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden xl:table-cell">
                                 ₹{(member.balance || 0).toLocaleString()}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
+                              <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(member.status)}`}>
                                   {member.status || 'Unknown'}
                                 </span>
@@ -795,7 +900,7 @@ const ChitSchemeManagement = () => {
               </div>
 
               {/* Summary Statistics */}
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <div className="text-sm text-blue-600">Total Members</div>
                   <div className="text-2xl font-bold text-blue-900">
@@ -823,11 +928,11 @@ const ChitSchemeManagement = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="mt-6 flex justify-end space-x-4">
-                <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+              <div className="mt-6 flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4">
+                <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto">
                   Export Members List
                 </button>
-                <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors w-full sm:w-auto">
                   Add New Member
                 </button>
               </div>

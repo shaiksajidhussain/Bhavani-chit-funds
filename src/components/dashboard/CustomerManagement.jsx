@@ -108,57 +108,124 @@ const CustomerManagement = () => {
   // Helper function to handle API errors and show toast notifications
   const handleApiError = (error, defaultMessage = 'An error occurred') => {
     console.error('API Error:', error);
+    console.error('Error response:', error.response?.data);
+    console.error('Error status:', error.response?.status);
+    
+    // Handle network errors
+    if (!error.response) {
+      toast.error('Network error: Please check your internet connection', {
+        position: "top-right",
+        autoClose: 7000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+      return;
+    }
     
     if (error.response?.data) {
-      const { success, message, errors } = error.response.data;
+      const { success, message, errors, error: serverError } = error.response.data;
       
-      if (!success && errors && Array.isArray(errors)) {
-        // Handle validation errors - show each error message
-        errors.forEach(errorItem => {
+      // Handle validation errors - show each error message
+      if (!success && errors && Array.isArray(errors) && errors.length > 0) {
+        errors.forEach((errorItem, index) => {
           const fieldName = errorItem.path || 'Field';
           const errorMessage = errorItem.msg || 'Invalid value';
-          toast.error(`${fieldName}: ${errorMessage}`, {
+          
+          // Show field-specific error with better formatting
+          const displayMessage = fieldName === 'Field' ? errorMessage : `${fieldName}: ${errorMessage}`;
+          
+          toast.error(displayMessage, {
             position: "top-right",
-            autoClose: 5000,
+            autoClose: 6000,
             hideProgressBar: false,
             closeOnClick: true,
             pauseOnHover: true,
             draggable: true,
+            toastId: `validation-error-${index}`, // Prevent duplicate toasts
           });
         });
-      } else if (message) {
-        // Handle general error messages
+      } 
+      // Handle server error messages
+      else if (message) {
         toast.error(message, {
           position: "top-right",
-          autoClose: 5000,
+          autoClose: 6000,
           hideProgressBar: false,
           closeOnClick: true,
           pauseOnHover: true,
           draggable: true,
         });
-      } else {
-        toast.error(defaultMessage, {
+      } 
+      // Handle server error field
+      else if (serverError) {
+        toast.error(serverError, {
           position: "top-right",
-          autoClose: 5000,
+          autoClose: 6000,
           hideProgressBar: false,
           closeOnClick: true,
           pauseOnHover: true,
           draggable: true,
         });
       }
-    } else if (error.message) {
+      // Handle HTTP status specific errors
+      else {
+        const status = error.response.status;
+        let statusMessage = defaultMessage;
+        
+        switch (status) {
+          case 400:
+            statusMessage = 'Bad Request: Please check your input data';
+            break;
+          case 401:
+            statusMessage = 'Unauthorized: Please login again';
+            break;
+          case 403:
+            statusMessage = 'Forbidden: You do not have permission to perform this action';
+            break;
+          case 404:
+            statusMessage = 'Not Found: The requested resource was not found';
+            break;
+          case 409:
+            statusMessage = 'Conflict: This action conflicts with existing data';
+            break;
+          case 422:
+            statusMessage = 'Validation Error: Please check your input data';
+            break;
+          case 500:
+            statusMessage = 'Server Error: Please try again later';
+            break;
+          default:
+            statusMessage = `Error ${status}: ${defaultMessage}`;
+        }
+        
+        toast.error(statusMessage, {
+          position: "top-right",
+          autoClose: 6000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+      }
+    } 
+    // Handle error message from error object
+    else if (error.message) {
       toast.error(error.message, {
         position: "top-right",
-        autoClose: 5000,
+        autoClose: 6000,
         hideProgressBar: false,
         closeOnClick: true,
         pauseOnHover: true,
         draggable: true,
       });
-    } else {
+    } 
+    // Fallback to default message
+    else {
       toast.error(defaultMessage, {
         position: "top-right",
-        autoClose: 5000,
+        autoClose: 6000,
         hideProgressBar: false,
         closeOnClick: true,
         pauseOnHover: true,
@@ -196,6 +263,22 @@ const CustomerManagement = () => {
         console.log('File size:', file.size);
         console.log('File name:', file.name);
         
+        // Check file size (1MB = 1024 * 1024 bytes)
+        const maxSize = 1024 * 1024; // 1MB in bytes
+        if (file.size > maxSize) {
+          toast.error('File size must be less than 1MB. Please choose a smaller image.', {
+            position: "top-right",
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+          });
+          // Clear the file input
+          e.target.value = '';
+          return;
+        }
+        
         try {
           // Convert file to Base64 using utility function
           const base64String = await fileToBase64(file);
@@ -209,6 +292,14 @@ const CustomerManagement = () => {
           }));
         } catch (error) {
           console.error('Error converting file to Base64:', error);
+          toast.error('Error processing image. Please try again.', {
+            position: "top-right",
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+          });
         }
       }
     } else {
@@ -406,13 +497,13 @@ const CustomerManagement = () => {
   };
 
   return (
-    <div className="space-y-6 h-full overflow-y-auto px-4 py-6 max-w-7xl mx-auto">
+    <div className="space-y-4 lg:space-y-6 px-2 sm:px-4 py-4 lg:py-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Customer Management</h1>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Customer Management</h1>
         <button
           onClick={() => setShowCreateForm(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto"
         >
           + Add New Customer
         </button>
@@ -440,8 +531,8 @@ const CustomerManagement = () => {
       )}
 
       {/* Search and Filter */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border">
-        <div className="flex flex-col lg:flex-row gap-4">
+      <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
+        <div className="flex flex-col gap-4">
           <div className="flex-1">
             <input
               type="text"
@@ -451,8 +542,8 @@ const CustomerManagement = () => {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:w-auto">
-            <div className="md:w-48">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -464,7 +555,7 @@ const CustomerManagement = () => {
                 <option value="DEFAULTED">Defaulted</option>
               </select>
             </div>
-            <div className="md:w-48">
+            <div>
               <select
                 value={schemeFilter}
                 onChange={(e) => setSchemeFilter(e.target.value)}
@@ -476,31 +567,31 @@ const CustomerManagement = () => {
                 ))}
               </select>
             </div>
-          </div>
-          <div className="flex items-center">
-            <button
-              onClick={() => {
-                setSearchTerm('');
-                setStatusFilter('all');
-                setSchemeFilter('all');
-              }}
-              className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Clear Filters
-            </button>
+            <div className="sm:col-span-2 lg:col-span-1">
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('all');
+                  setSchemeFilter('all');
+                }}
+                className="w-full px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Clear Filters
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Add/Edit Form Modal */}
       {showCreateForm && (
-        <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+        <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-xl max-w-2xl w-full max-h-[95vh] overflow-y-auto">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">
               {editingCustomer ? 'Edit Customer' : 'Add New Customer'}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
                   <input
@@ -537,7 +628,7 @@ const CustomerManagement = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Chit Scheme</label>
                   <select
@@ -592,7 +683,7 @@ const CustomerManagement = () => {
                   </select>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Amount per Day</label>
                   <input
@@ -684,7 +775,7 @@ const CustomerManagement = () => {
                           </label>
                           <p className="pl-1">or drag and drop</p>
                         </div>
-                        <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                        <p className="text-xs text-gray-500">PNG, JPG, GIF up to 1MB</p>
                       </div>
                     )}
                   </div>
@@ -741,7 +832,7 @@ const CustomerManagement = () => {
       )}
 
       {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-x-auto">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6 overflow-x-auto">
         {/* Scheme Statistics */}
         {chitSchemes.map((scheme) => {
           const schemeCustomers = safeCustomers.filter(customer => customer.schemeId === scheme.id);
@@ -749,16 +840,16 @@ const CustomerManagement = () => {
           const totalBalance = schemeCustomers.reduce((sum, customer) => sum + (customer.balance || 0), 0);
           
           return (
-            <div key={scheme.id} className="bg-white p-6 rounded-lg shadow-sm border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">{scheme.name}</p>
-                  <p className="text-2xl font-bold text-gray-900">{schemeCustomers.length}</p>
+            <div key={scheme.id} className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-600 truncate">{scheme.name}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900">{schemeCustomers.length}</p>
                   <p className="text-sm text-gray-500">{activeCustomers} active</p>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <p className="text-sm text-gray-600">Total Balance</p>
-                  <p className="text-lg font-semibold text-gray-900">₹{totalBalance.toLocaleString()}</p>
+                  <p className="text-base sm:text-lg font-semibold text-gray-900">₹{totalBalance.toLocaleString()}</p>
                 </div>
               </div>
             </div>
@@ -768,94 +859,113 @@ const CustomerManagement = () => {
 
       {/* Members Table */}
       <div className="bg-white rounded-lg shadow-sm border">
-        <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">Members</h2>
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Members</h2>
         </div>
         <div className="overflow-x-auto">
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-80 sm:max-h-96 overflow-y-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">S. No</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Photo</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chit Scheme</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Paid</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pending Due</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Next Due</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">S. No</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Photo</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Phone</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Scheme</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">Paid</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">Due</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Last Date</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">Next Due</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredCustomers.map((customer, index) => (
                 <tr key={customer.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {index + 1}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden sm:table-cell">
                     {customer.photo ? (
                       <img
                         src={customer.photo}
                         alt={`${customer.name} photo`}
-                        className="h-10 w-10 rounded-full object-cover"
+                        className="h-8 w-8 sm:h-10 sm:w-10 rounded-full object-cover"
                       />
                     ) : (
-                      <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                      <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gray-200 flex items-center justify-center">
                         <span className="text-gray-500 text-xs font-medium">
                           {customer.name.charAt(0).toUpperCase()}
                         </span>
                       </div>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     M{customer.id.toString().padStart(4, '0')}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    <button
-                      onClick={() => handleViewPassbook(customer)}
-                      className="text-blue-600 hover:text-blue-900 hover:underline cursor-pointer"
-                    >
-                      {customer.name}
-                    </button>
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handleViewPassbook(customer)}
+                        className="text-blue-600 hover:text-blue-900 hover:underline cursor-pointer truncate"
+                      >
+                        {customer.name}
+                      </button>
+                      {/* Mobile: Show photo next to name */}
+                      <div className="sm:hidden">
+                        {customer.photo ? (
+                          <img
+                            src={customer.photo}
+                            alt={`${customer.name} photo`}
+                            className="h-6 w-6 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="h-6 w-6 rounded-full bg-gray-200 flex items-center justify-center">
+                            <span className="text-gray-500 text-xs font-medium">
+                              {customer.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden md:table-cell">
                     {customer.mobile}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {getSchemeName(customer.schemeId)}
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden lg:table-cell">
+                    <span className="truncate block max-w-24">{getSchemeName(customer.schemeId)}</span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden xl:table-cell">
                     ₹{((customer.amountPerDay || 0) * (customer.duration || 0) - (customer.balance || 0)).toLocaleString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden xl:table-cell">
                     ₹{(customer.balance || 0).toLocaleString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden lg:table-cell">
                     {customer.lastDate ? new Date(customer.lastDate).toLocaleDateString('en-GB') : '-'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden xl:table-cell">
                     {new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB')}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2">
                       <button
                         onClick={() => handleEdit(customer)}
-                        className="text-blue-600 hover:text-blue-900"
+                        className="text-blue-600 hover:text-blue-900 text-xs sm:text-sm"
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => handleDelete(customer.id)}
                         disabled={isDeleting}
-                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center text-xs sm:text-sm"
                       >
                         {isDeleting ? (
                           <>
                             <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600 mr-1"></div>
-                            Deleting...
+                            <span className="hidden sm:inline">Deleting...</span>
+                            <span className="sm:hidden">...</span>
                           </>
                         ) : (
                           'Delete'
@@ -873,11 +983,11 @@ const CustomerManagement = () => {
 
       {/* Passbook Modal */}
       {showPassbookModal && selectedCustomer && (
-        <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[95vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">
+            <div className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
                   Passbook - {selectedCustomer.name}
                 </h2>
                 <button
@@ -890,7 +1000,7 @@ const CustomerManagement = () => {
 
               {/* Customer Info Header */}
               <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
                     <span className="text-sm text-gray-600">Customer ID:</span>
                     <p className="font-medium">M{selectedCustomer.id.toString().padStart(4, '0')}</p>
@@ -957,13 +1067,13 @@ const CustomerManagement = () => {
 
               {/* Add Passbook Entry Form Modal */}
               {showPassbookForm && (
-                <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-60">
-                  <div className="bg-white p-6 rounded-lg shadow-xl max-w-4xl w-full mx-4">
+                <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-60 p-4">
+                  <div className="bg-white p-4 sm:p-6 rounded-lg shadow-xl max-w-4xl w-full max-h-[95vh] overflow-y-auto">
                     <h3 className="text-xl font-bold text-gray-900 mb-4">
                       {editingPassbookEntry ? 'Edit Passbook Entry' : 'Add Passbook Entry'}
                     </h3>
                     <form onSubmit={handlePassbookSubmit} className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
                           <input
@@ -1109,7 +1219,7 @@ const CustomerManagement = () => {
                   <h3 className="text-lg font-semibold text-gray-900">Passbook Entries</h3>
                 </div>
                 <div className="overflow-x-auto">
-                  <div className="max-h-80 overflow-y-auto">
+                  <div className="max-h-80 sm:max-h-96 overflow-y-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>

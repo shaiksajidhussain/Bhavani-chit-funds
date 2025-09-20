@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import apiConfig from '../components/Config';
 
 const useReportsStore = create((set, get) => ({
   // State
@@ -34,13 +35,13 @@ const useReportsStore = create((set, get) => ({
   fetchDailyReport: async (date) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`http://localhost:5001/api/reports/daily?date=${date}`, {
+      const response = await fetch(`${apiConfig.baseUrl}/reports/daily?date=${date}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
         }
       });
-
+      console.log(response);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -68,7 +69,7 @@ const useReportsStore = create((set, get) => ({
   fetchMonthlyReport: async (year, month) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`http://localhost:5001/api/reports/monthly?year=${year}&month=${month}`, {
+      const response = await fetch(`${apiConfig.baseUrl}/reports/monthly?year=${year}&month=${month}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
@@ -102,7 +103,7 @@ const useReportsStore = create((set, get) => ({
   fetchYearlyReport: async (year) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`http://localhost:5001/api/reports/yearly?year=${year}`, {
+      const response = await fetch(`${apiConfig.baseUrl}/reports/yearly?year=${year}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
@@ -136,7 +137,7 @@ const useReportsStore = create((set, get) => ({
   fetchTopCustomers: async (limit = 10) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`http://localhost:5001/api/reports/top-customers?limit=${limit}`, {
+      const response = await fetch(`${apiConfig.baseUrl}/reports/top-customers?limit=${limit}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
@@ -170,7 +171,7 @@ const useReportsStore = create((set, get) => ({
   fetchSchemePerformance: async () => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch('http://localhost:5001/api/reports/scheme-performance', {
+            const response = await fetch(`${apiConfig.baseUrl}/reports/scheme-performance`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'

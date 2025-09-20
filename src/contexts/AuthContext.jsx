@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import apiConfig from '../components/Config';
 
 const AuthContext = createContext();
 
@@ -10,7 +11,7 @@ export const useAuth = () => {
   return context;
 };
 
-const API_BASE_URL = 'http://localhost:5001/api';
+const API_BASE_URL =  `${apiConfig.baseUrl}`;
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);

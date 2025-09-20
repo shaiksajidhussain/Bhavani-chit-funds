@@ -49,57 +49,124 @@ const AuctionManagement = () => {
   // Helper function to handle API errors and show toast notifications
   const handleApiError = (error, defaultMessage = 'An error occurred') => {
     console.error('API Error:', error);
+    console.error('Error response:', error.response?.data);
+    console.error('Error status:', error.response?.status);
+    
+    // Handle network errors
+    if (!error.response) {
+      toast.error('Network error: Please check your internet connection', {
+        position: "top-right",
+        autoClose: 7000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+      return;
+    }
     
     if (error.response?.data) {
-      const { success, message, errors } = error.response.data;
+      const { success, message, errors, error: serverError } = error.response.data;
       
-      if (!success && errors && Array.isArray(errors)) {
-        // Handle validation errors - show each error message
-        errors.forEach(errorItem => {
+      // Handle validation errors - show each error message
+      if (!success && errors && Array.isArray(errors) && errors.length > 0) {
+        errors.forEach((errorItem, index) => {
           const fieldName = errorItem.path || 'Field';
           const errorMessage = errorItem.msg || 'Invalid value';
-          toast.error(`${fieldName}: ${errorMessage}`, {
+          
+          // Show field-specific error with better formatting
+          const displayMessage = fieldName === 'Field' ? errorMessage : `${fieldName}: ${errorMessage}`;
+          
+          toast.error(displayMessage, {
             position: "top-right",
-            autoClose: 5000,
+            autoClose: 6000,
             hideProgressBar: false,
             closeOnClick: true,
             pauseOnHover: true,
             draggable: true,
+            toastId: `validation-error-${index}`, // Prevent duplicate toasts
           });
         });
-      } else if (message) {
-        // Handle general error messages
+      } 
+      // Handle server error messages
+      else if (message) {
         toast.error(message, {
           position: "top-right",
-          autoClose: 5000,
+          autoClose: 6000,
           hideProgressBar: false,
           closeOnClick: true,
           pauseOnHover: true,
           draggable: true,
         });
-      } else {
-        toast.error(defaultMessage, {
+      } 
+      // Handle server error field
+      else if (serverError) {
+        toast.error(serverError, {
           position: "top-right",
-          autoClose: 5000,
+          autoClose: 6000,
           hideProgressBar: false,
           closeOnClick: true,
           pauseOnHover: true,
           draggable: true,
         });
       }
-    } else if (error.message) {
+      // Handle HTTP status specific errors
+      else {
+        const status = error.response.status;
+        let statusMessage = defaultMessage;
+        
+        switch (status) {
+          case 400:
+            statusMessage = 'Bad Request: Please check your input data';
+            break;
+          case 401:
+            statusMessage = 'Unauthorized: Please login again';
+            break;
+          case 403:
+            statusMessage = 'Forbidden: You do not have permission to perform this action';
+            break;
+          case 404:
+            statusMessage = 'Not Found: The requested resource was not found';
+            break;
+          case 409:
+            statusMessage = 'Conflict: This action conflicts with existing data';
+            break;
+          case 422:
+            statusMessage = 'Validation Error: Please check your input data';
+            break;
+          case 500:
+            statusMessage = 'Server Error: Please try again later';
+            break;
+          default:
+            statusMessage = `Error ${status}: ${defaultMessage}`;
+        }
+        
+        toast.error(statusMessage, {
+          position: "top-right",
+          autoClose: 6000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+      }
+    } 
+    // Handle error message from error object
+    else if (error.message) {
       toast.error(error.message, {
         position: "top-right",
-        autoClose: 5000,
+        autoClose: 6000,
         hideProgressBar: false,
         closeOnClick: true,
         pauseOnHover: true,
         draggable: true,
       });
-    } else {
+    } 
+    // Fallback to default message
+    else {
       toast.error(defaultMessage, {
         position: "top-right",
-        autoClose: 5000,
+        autoClose: 6000,
         hideProgressBar: false,
         closeOnClick: true,
         pauseOnHover: true,
@@ -298,18 +365,18 @@ const AuctionManagement = () => {
   const schemeStats = getSchemeStats();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 lg:space-y-6 px-2 sm:px-4 py-4 lg:py-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Auction & Lifting Management</h1>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Auction & Lifting Management</h1>
         <button
           onClick={() => {
             resetForm();
             setShowCreateForm(true);
           }}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto"
         >
-          + Add
+          + Add New Auction
         </button>
       </div>
 
@@ -329,10 +396,10 @@ const AuctionManagement = () => {
    
 
       {/* Scheme Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
         {Object.entries(schemeStats).map(([scheme, stats]) => (
-          <div key={scheme} className="bg-white p-6 rounded-lg shadow-sm border">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">{scheme}</h3>
+          <div key={scheme} className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 truncate">{scheme}</h3>
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Total Auctions:</span>
@@ -352,13 +419,13 @@ const AuctionManagement = () => {
       </div>
 
       {/* Filter */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border">
-        <div className="flex items-center space-x-4">
+      <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <label className="text-sm font-medium text-gray-700">Filter by Scheme:</label>
           <select
             value={selectedScheme}
             onChange={(e) => setSelectedScheme(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-auto"
           >
             <option value="all">All Schemes</option>
             {chitSchemes.map((scheme) => (
@@ -370,13 +437,13 @@ const AuctionManagement = () => {
 
       {/* Add/Edit Auction Form Modal */}
       {showCreateForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              {editingAuction ? 'Edit Lifting' : 'Lifting '}
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">
+              {editingAuction ? 'Edit Lifting' : 'Add New Lifting'}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Chit Scheme
@@ -410,7 +477,7 @@ const AuctionManagement = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Chit Date</label>
                   <input
@@ -435,7 +502,7 @@ const AuctionManagement = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Winning Member</label>
                   <select
@@ -464,7 +531,7 @@ const AuctionManagement = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Amount Received (₹)</label>
                   <input
@@ -560,59 +627,66 @@ const AuctionManagement = () => {
 
       {/* Auction History Table */}
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Auction History</h2>
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Auction History</h2>
         </div>
         <div className="overflow-x-auto">
+          <div className="max-h-80 sm:max-h-96 overflow-y-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>  
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scheme</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Auction Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chit Number</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Winning Member</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount Received</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scheme</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Auction Date</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Chit Number</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Winning Member</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Amount Received</th>
                 {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Discount</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">New Payment</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th> */}
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan="6" className="px-3 sm:px-6 py-4 text-center text-gray-500">
                     Loading auctions...
                   </td>
                 </tr>
               ) : filteredAuctions.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan="6" className="px-3 sm:px-6 py-4 text-center text-gray-500">
                     No auctions found
                   </td>
                 </tr>
               ) : (
                 filteredAuctions.map((auction) => (
                   <tr key={auction.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className="text-sm font-medium text-gray-900">{auction.chitScheme?.name || 'Unknown Scheme'}</div>
-                        <div className="text-sm text-gray-500">Value: ₹{auction.chitScheme?.chitValue?.toLocaleString() || 'N/A'}</div>
+                        <div className="text-sm font-medium text-gray-900 truncate">{auction.chitScheme?.name || 'Unknown Scheme'}</div>
+                        <div className="text-xs text-gray-500">Value: ₹{auction.chitScheme?.chitValue?.toLocaleString() || 'N/A'}</div>
+                        {/* Mobile: Show additional info below scheme name */}
+                        <div className="sm:hidden mt-1 text-xs text-gray-600">
+                          <div>Date: {auction.auctionDate ? new Date(auction.auctionDate).toLocaleDateString() : 'N/A'}</div>
+                          <div>Chit #: {auction.newDailyPayment || 'N/A'}</div>
+                          <div>Amount: ₹{(auction.amountReceived || 0).toLocaleString()}</div>
+                        </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden sm:table-cell">
                       {auction.auctionDate ? new Date(auction.auctionDate).toLocaleDateString() : 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden md:table-cell">
                       {auction.newDailyPayment || 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className="text-sm font-medium text-gray-900">{auction.winningMember?.name || 'No Member'}</div>
-                        <div className="text-sm text-gray-500">ID: {auction.winningMember?.id || 'N/A'}</div>
+                        <div className="text-sm font-medium text-gray-900 truncate">{auction.winningMember?.name || 'No Member'}</div>
+                        <div className="text-xs text-gray-500">ID: {auction.winningMember?.id || 'N/A'}</div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden lg:table-cell">
                       ₹{(auction.amountReceived || 0).toLocaleString()}
                     </td>
                     {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -626,23 +700,24 @@ const AuctionManagement = () => {
                         {auction.status}
                       </span>
                     </td> */}
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
+                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2">
                         <button
                           onClick={() => handleEdit(auction)}
-                          className="text-blue-600 hover:text-blue-900"
+                          className="text-blue-600 hover:text-blue-900 text-xs sm:text-sm"
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => handleDelete(auction.id)}
                           disabled={isDeleting}
-                          className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                          className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center text-xs sm:text-sm"
                         >
                           {isDeleting ? (
                             <>
                               <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600 mr-1"></div>
-                              Deleting...
+                              <span className="hidden sm:inline">Deleting...</span>
+                              <span className="sm:hidden">...</span>
                             </>
                           ) : (
                             'Delete'
@@ -655,6 +730,7 @@ const AuctionManagement = () => {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 

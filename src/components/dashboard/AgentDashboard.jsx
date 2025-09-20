@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const AgentDashboard = () => {
+const AgentDashboard = ({ onNavigate }) => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Static agent data
@@ -72,6 +72,19 @@ const AgentDashboard = () => {
 
   const getProgressPercentage = (achieved, target) => {
     return Math.round((achieved / target) * 100);
+  };
+
+  const quickActions = [
+    { id: 1, title: 'Record Collection', icon: '💰', color: 'bg-blue-600', tab: 'collections' },
+    { id: 2, title: 'Send Reminder', icon: '📱', color: 'bg-green-600', tab: 'customers' },
+    { id: 3, title: 'View Reports', icon: '📊', color: 'bg-purple-600', tab: 'reports' }
+  ];
+
+  // Handle quick action button clicks
+  const handleQuickAction = (action) => {
+    if (onNavigate) {
+      onNavigate(action.tab);
+    }
   };
 
   return (
@@ -221,24 +234,18 @@ const AgentDashboard = () => {
       <div className="bg-white p-6 rounded-lg shadow-sm border">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="bg-blue-600 text-white p-4 rounded-lg hover:bg-blue-700 transition-colors">
-            <div className="flex items-center space-x-3">
-              <span className="text-2xl">💰</span>
-              <span className="font-medium">Record Collection</span>
-            </div>
-          </button>
-          <button className="bg-green-600 text-white p-4 rounded-lg hover:bg-green-700 transition-colors">
-            <div className="flex items-center space-x-3">
-              <span className="text-2xl">📱</span>
-              <span className="font-medium">Send Reminder</span>
-            </div>
-          </button>
-          <button className="bg-purple-600 text-white p-4 rounded-lg hover:bg-purple-700 transition-colors">
-            <div className="flex items-center space-x-3">
-              <span className="text-2xl">📊</span>
-              <span className="font-medium">View Reports</span>
-            </div>
-          </button>
+          {quickActions.map((action) => (
+            <button
+              key={action.id}
+              onClick={() => handleQuickAction(action)}
+              className={`${action.color} text-white p-4 rounded-lg hover:opacity-90 transition-opacity cursor-pointer`}
+            >
+              <div className="flex items-center space-x-3">
+                <span className="text-2xl">{action.icon}</span>
+                <span className="font-medium">{action.title}</span>
+              </div>
+            </button>
+          ))}
         </div>
       </div>
     </div>

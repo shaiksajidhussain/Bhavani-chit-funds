@@ -56,6 +56,10 @@ const AdminDashboard = ({ onNavigate }) => {
   const [passbookFrequencyFilter, setPassbookFrequencyFilter] = useState('all');
   const [passbookDateFrom, setPassbookDateFrom] = useState('');
   const [passbookDateTo, setPassbookDateTo] = useState('');
+  
+  // Print and PDF states
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   // Fetch customers on component mount
   useEffect(() => {
@@ -338,6 +342,290 @@ const AdminDashboard = ({ onNavigate }) => {
       
       return true;
     });
+  };
+
+  // Print passbook functionality
+  const handlePrintPassbook = () => {
+    setIsPrinting(true);
+    
+    // Create a new window for printing
+    const printWindow = window.open('', '_blank');
+    const filteredEntries = getFilteredPassbookEntries();
+    
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Passbook - ${selectedCustomer.name}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+            .customer-info { display: flex; justify-content: space-between; margin-bottom: 20px; }
+            .info-item { margin: 5px 0; }
+            .info-label { font-weight: bold; color: #666; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f5f5f5; font-weight: bold; }
+            .amount { text-align: right; }
+            .status { padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+            .status-yes { background-color: #d4edda; color: #155724; }
+            .status-no { background-color: #f8d7da; color: #721c24; }
+            .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+            @media print {
+              body { margin: 0; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Bhavani Chit Funds</h1>
+            <h2>Passbook - ${selectedCustomer.name}</h2>
+            <p>Generated on: ${new Date().toLocaleString()}</p>
+          </div>
+          
+          <div class="customer-info">
+            <div>
+              <div class="info-item"><span class="info-label">Customer ID:</span> M${selectedCustomer.id.toString().padStart(4, '0')}</div>
+              <div class="info-item"><span class="info-label">Phone:</span> ${selectedCustomer.mobile}</div>
+              <div class="info-item"><span class="info-label">Status:</span> ${selectedCustomer.status}</div>
+            </div>
+            <div>
+              <div class="info-item"><span class="info-label">Scheme:</span> ${selectedPassbookScheme?.name || 'N/A'}</div>
+              <div class="info-item"><span class="info-label">Chit Value:</span> ₹${(selectedPassbookScheme?.chitValue || 0).toLocaleString()}</div>
+              <div class="info-item"><span class="info-label">Total Entries:</span> ${filteredEntries.length}</div>
+            </div>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Payment</th>
+                <th>Amount</th>
+                <th>Chitti Amount</th>
+                <th>Payment Method</th>
+                <th>Frequency</th>
+                <th>Chit Lifting</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredEntries.map(entry => `
+                <tr>
+                  <td>${new Date(entry.date).toLocaleDateString('en-GB')}</td>
+                  <td class="amount">₹${entry.dailyPayment.toLocaleString()}</td>
+                  <td class="amount">₹${entry.amount.toLocaleString()}</td>
+                  <td class="amount">₹${entry.chittiAmount.toLocaleString()}</td>
+                  <td>${entry.paymentMethod?.replace('_', ' ') || 'CASH'}</td>
+                  <td>${entry.paymentFrequency || 'DAILY'}</td>
+                  <td><span class="status ${entry.chitLifting === 'YES' ? 'status-yes' : 'status-no'}">${entry.chitLifting || 'NO'}</span></td>
+                  <td>${entry.type}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div class="footer">
+            <p>This is a computer generated passbook. No signature required.</p>
+            <p>Bhavani Chit Funds - ${new Date().getFullYear()}</p>
+          </div>
+        </body>
+      </html>
+    `;
+    
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+    
+    setIsPrinting(false);
+    showSuccessMessage('Passbook sent to printer!');
+  };
+
+  // Export to PDF functionality
+  const handleExportToPDF = async () => {
+    setIsGeneratingPDF(true);
+    
+    try {
+      const filteredEntries = getFilteredPassbookEntries();
+      
+      // Prepare data for PDF generation
+      const pdfData = {
+        customer: {
+          id: selectedCustomer.id,
+          name: selectedCustomer.name,
+          mobile: selectedCustomer.mobile,
+          status: selectedCustomer.status
+        },
+        scheme: {
+          name: selectedPassbookScheme?.name || 'N/A',
+          chitValue: selectedPassbookScheme?.chitValue || 0
+        },
+        entries: filteredEntries.map(entry => ({
+          date: new Date(entry.date).toLocaleDateString('en-GB'),
+          dailyPayment: entry.dailyPayment,
+          amount: entry.amount,
+          chittiAmount: entry.chittiAmount,
+          paymentMethod: entry.paymentMethod?.replace('_', ' ') || 'CASH',
+          paymentFrequency: entry.paymentFrequency || 'DAILY',
+          chitLifting: entry.chitLifting || 'NO',
+          type: entry.type
+        })),
+        generatedOn: new Date().toLocaleString(),
+        totalEntries: filteredEntries.length
+      };
+      
+      // Call backend API to generate PDF
+      const response = await fetch(`https://bhavani-chit-funds-backend.vercel.app/api/passbook/export-pdf`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(pdfData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+      
+      // Check if response is actually a PDF
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/pdf')) {
+        throw new Error('Response is not a PDF file');
+      }
+      
+      // Download the PDF
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `passbook-${selectedCustomer.name.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+      
+      showSuccessMessage('PDF exported successfully!');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      
+      // Fallback: Generate PDF using browser's print to PDF
+      const filteredEntries = getFilteredPassbookEntries();
+      
+      // Create a hidden iframe for PDF generation
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+      
+      const printContent = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Passbook - ${selectedCustomer.name}</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; }
+              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+              .customer-info { display: flex; justify-content: space-between; margin-bottom: 20px; }
+              .info-item { margin: 5px 0; }
+              .info-label { font-weight: bold; color: #666; }
+              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+              th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+              th { background-color: #f5f5f5; font-weight: bold; }
+              .amount { text-align: right; }
+              .status { padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+              .status-yes { background-color: #d4edda; color: #155724; }
+              .status-no { background-color: #f8d7da; color: #721c24; }
+              .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+              @media print {
+                body { margin: 0; }
+                .no-print { display: none; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>Bhavani Chit Funds</h1>
+              <h2>Passbook - ${selectedCustomer.name}</h2>
+              <p>Generated on: ${new Date().toLocaleString()}</p>
+            </div>
+            
+            <div class="customer-info">
+              <div>
+                <div class="info-item"><span class="info-label">Customer ID:</span> M${selectedCustomer.id.toString().padStart(4, '0')}</div>
+                <div class="info-item"><span class="info-label">Phone:</span> ${selectedCustomer.mobile}</div>
+                <div class="info-item"><span class="info-label">Status:</span> ${selectedCustomer.status}</div>
+              </div>
+              <div>
+                <div class="info-item"><span class="info-label">Scheme:</span> ${selectedPassbookScheme?.name || 'N/A'}</div>
+                <div class="info-item"><span class="info-label">Chit Value:</span> ₹${(selectedPassbookScheme?.chitValue || 0).toLocaleString()}</div>
+                <div class="info-item"><span class="info-label">Total Entries:</span> ${filteredEntries.length}</div>
+              </div>
+            </div>
+            
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Payment</th>
+                  <th>Amount</th>
+                  <th>Chitti Amount</th>
+                  <th>Payment Method</th>
+                  <th>Frequency</th>
+                  <th>Chit Lifting</th>
+                  <th>Type</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredEntries.map(entry => `
+                  <tr>
+                    <td>${new Date(entry.date).toLocaleDateString('en-GB')}</td>
+                    <td class="amount">₹${entry.dailyPayment.toLocaleString()}</td>
+                    <td class="amount">₹${entry.amount.toLocaleString()}</td>
+                    <td class="amount">₹${entry.chittiAmount.toLocaleString()}</td>
+                    <td>${entry.paymentMethod?.replace('_', ' ') || 'CASH'}</td>
+                    <td>${entry.paymentFrequency || 'DAILY'}</td>
+                    <td><span class="status ${entry.chitLifting === 'YES' ? 'status-yes' : 'status-no'}">${entry.chitLifting || 'NO'}</span></td>
+                    <td>${entry.type}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            
+            <div class="footer">
+              <p>This is a computer generated passbook. No signature required.</p>
+              <p>Bhavani Chit Funds - ${new Date().getFullYear()}</p>
+            </div>
+          </body>
+        </html>
+      `;
+      
+      iframe.contentDocument.write(printContent);
+      iframe.contentDocument.close();
+      
+      // Wait for content to load, then trigger print
+      iframe.onload = () => {
+        setTimeout(() => {
+          iframe.contentWindow.print();
+          // Clean up iframe after printing
+          setTimeout(() => {
+            document.body.removeChild(iframe);
+          }, 1000);
+        }, 500);
+      };
+      
+      // Show instructions for PDF generation
+      showSuccessMessage('Print dialog opened - select "Save as PDF" to download');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
   };
 
   // Passbook form handlers
@@ -1351,11 +1639,43 @@ const AdminDashboard = ({ onNavigate }) => {
 
               {/* Print Options */}
               <div className="mt-6 flex justify-end space-x-4">
-                <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                  Print Passbook
+                <button 
+                  onClick={handlePrintPassbook}
+                  disabled={isPrinting || !passbookEntries || passbookEntries.length === 0}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  {isPrinting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Printing...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                      </svg>
+                      Print Passbook
+                    </>
+                  )}
                 </button>
-                <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
-                  Export to PDF
+                <button 
+                  onClick={handleExportToPDF}
+                  disabled={isGeneratingPDF || !passbookEntries || passbookEntries.length === 0}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  {isGeneratingPDF ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Generating PDF...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Export to PDF
+                    </>
+                  )}
                 </button>
               </div>
             </div>

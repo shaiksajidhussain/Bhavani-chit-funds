@@ -14,7 +14,7 @@ export const useAuth = () => {
 const API_BASE_URL =  `${apiConfig.baseUrl}`;
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(null); 
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
 

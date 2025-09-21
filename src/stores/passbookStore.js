@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import apiConfig from '../components/Config';
 
-const API_BASE_URL = `${apiConfig.baseUrl}'`;
+const API_BASE_URL = `${apiConfig.baseUrl}`;
 
 const usePassbookStore = create((set, get) => ({
   // State

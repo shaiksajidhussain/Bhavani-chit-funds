@@ -21,6 +21,7 @@ const AuctionManagement = () => {
     fetchAuctions,
     fetchChitSchemes,
     fetchMembers,
+    fetchSchemeMembers,
     createAuction,
     updateAuction,
     deleteAuction
@@ -206,7 +207,7 @@ const AuctionManagement = () => {
     ? auctions 
     : auctions.filter(auction => auction.chitScheme?.id === selectedScheme);
 
-  const handleInputChange = (e) => {
+  const handleInputChange = async (e) => {
     const { name, value } = e.target;
     console.log('Input change:', name, value);
     
@@ -232,10 +233,29 @@ const AuctionManagement = () => {
       const newData = {
         ...currentFormData,
         [name]: value,
-        chitValue: selectedScheme?.chitValue || ''
+        chitValue: selectedScheme?.chitValue || '',
+        winningMemberId: '', // Clear winning member when scheme changes
+        memberId: '' // Clear member ID when scheme changes
       };
       console.log('Updated form data:', newData);
       setFormData(newData);
+      
+      // Fetch members for the selected scheme
+      if (value) {
+        try {
+          await fetchSchemeMembers(value);
+        } catch (error) {
+          console.error('Error fetching scheme members:', error);
+          handleApiError(error, 'Failed to load scheme members');
+        }
+      } else {
+        // If no scheme selected, clear members by fetching all members
+        try {
+          await fetchMembers();
+        } catch (error) {
+          console.error('Error fetching all members:', error);
+        }
+      }
     } 
     else {
       const newData = {
@@ -274,6 +294,18 @@ const AuctionManagement = () => {
     }
     if (!currentFormData.auctionDate) {
       toast.error('Please select an auction date', {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+      setIsSubmitting(false);
+      return;
+    }
+    if (!currentFormData.winningMemberId) {
+      toast.error('Please select a winning member', {
         position: "top-right",
         autoClose: 3000,
         hideProgressBar: false,
@@ -510,14 +542,27 @@ const AuctionManagement = () => {
                     value={formData.winningMemberId}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={!formData.chitSchemeId}
                   >
-                    <option value="">Select Member</option>
+                    <option value="">
+                      {!formData.chitSchemeId 
+                        ? "Select a scheme first" 
+                        : members.length === 0 
+                          ? "No members in this scheme" 
+                          : "Select Member"
+                      }
+                    </option>
                     {members.map((member) => (
                       <option key={member.id} value={member.id}>
                         {member.name} (ID: {member.id})
                       </option>
                     ))}
                   </select>
+                  {formData.chitSchemeId && members.length === 0 && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      No members are enrolled in this scheme yet.
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Member ID</label>

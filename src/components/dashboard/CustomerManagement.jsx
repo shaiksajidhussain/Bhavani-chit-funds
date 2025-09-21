@@ -25,7 +25,8 @@ const CustomerManagement = () => {
     createCustomer,
     updateCustomer,
     deleteCustomer,
-    fetchChitSchemes
+    fetchChitSchemes,
+    fetchCustomerSchemes
   } = useCustomerStore();
 
   // Passbook store
@@ -37,12 +38,14 @@ const CustomerManagement = () => {
     formData: passbookFormData,
     setShowAddForm: setShowPassbookForm,
     setFormData: setPassbookFormData,
+    setPassbookEntries,
     resetForm: resetPassbookForm,
     fetchPassbookEntries,
     createPassbookEntry,
     updatePassbookEntry,
     deletePassbookEntry,
-    clearError: clearPassbookError
+    clearError: clearPassbookError,
+    clearAll: clearAllPassbookData
   } = usePassbookStore();
 
   // Local state for filters
@@ -50,6 +53,15 @@ const CustomerManagement = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [schemeFilter, setSchemeFilter] = useState('all');
   const [editingPassbookEntry, setEditingPassbookEntry] = useState(null);
+  
+  // Passbook filter states
+  const [passbookFrequencyFilter, setPassbookFrequencyFilter] = useState('all');
+  const [passbookDateFrom, setPassbookDateFrom] = useState('');
+  const [passbookDateTo, setPassbookDateTo] = useState('');
+  
+  // Passbook multi-scheme state
+  const [selectedPassbookScheme, setSelectedPassbookScheme] = useState(null);
+  const [customerSchemes, setCustomerSchemes] = useState([]);
   
   // Local loading states
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -110,9 +122,11 @@ const CustomerManagement = () => {
     console.error('API Error:', error);
     console.error('Error response:', error.response?.data);
     console.error('Error status:', error.response?.status);
+    console.error('Full error object:', error);
     
     // Handle network errors
     if (!error.response) {
+      console.log('No error.response found, showing network error');
       toast.error('Network error: Please check your internet connection', {
         position: "top-right",
         autoClose: 7000,
@@ -129,12 +143,15 @@ const CustomerManagement = () => {
       
       // Handle validation errors - show each error message
       if (!success && errors && Array.isArray(errors) && errors.length > 0) {
+        console.log('Processing validation errors:', errors);
         errors.forEach((errorItem, index) => {
           const fieldName = errorItem.path || 'Field';
           const errorMessage = errorItem.msg || 'Invalid value';
           
           // Show field-specific error with better formatting
           const displayMessage = fieldName === 'Field' ? errorMessage : `${fieldName}: ${errorMessage}`;
+          
+          console.log(`Showing validation error ${index}:`, displayMessage);
           
           toast.error(displayMessage, {
             position: "top-right",
@@ -302,11 +319,31 @@ const CustomerManagement = () => {
           });
         }
       }
+    } else if (name === 'durationType') {
+      // Handle duration type change with amount conversion
+      const currentAmount = parseFloat(formData.amountPerDay) || 0;
+      let convertedAmount = currentAmount;
+      
+      if (currentAmount > 0) {
+        if (value === 'MONTHS' && formData.durationType === 'DAYS') {
+          // Convert daily to monthly (assuming 30 days per month)
+          convertedAmount = Math.round(currentAmount * 30);
+        } else if (value === 'DAYS' && formData.durationType === 'MONTHS') {
+          // Convert monthly to daily (assuming 30 days per month)
+          convertedAmount = Math.round(currentAmount / 30);
+        }
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        amountPerDay: convertedAmount > 0 ? convertedAmount.toString() : prev.amountPerDay
+      }));
     } else {
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
     }
   };
 
@@ -394,6 +431,21 @@ const CustomerManagement = () => {
       try {
         await deleteCustomer(id);
         showSuccessMessage('Customer deleted successfully!');
+        
+        // If the deleted customer is currently being viewed in passbook, close the modal and clear all state
+        if (selectedCustomer && selectedCustomer.id === id) {
+          setShowPassbookModal(false);
+          setSelectedCustomer(null);
+          setCustomerSchemes([]);
+          setSelectedPassbookScheme(null);
+          setEditingPassbookEntry(null);
+          setPassbookFrequencyFilter('all');
+          setPassbookDateFrom('');
+          setPassbookDateTo('');
+          // Clear all passbook store state
+          clearAllPassbookData();
+        }
+        
         // Refresh the customer list after deletion
         await fetchCustomers();
       } catch (error) {
@@ -408,20 +460,115 @@ const CustomerManagement = () => {
     setSelectedCustomer(customer);
     setShowPassbookModal(true);
     
-    // Fetch passbook entries for this customer
     try {
-      await fetchPassbookEntries(customer.id);
+      // Fetch real schemes for this customer from the API
+      const schemes = await fetchCustomerSchemes(customer.id);
+      
+      if (schemes && schemes.length > 0) {
+        setCustomerSchemes(schemes);
+        setSelectedPassbookScheme(schemes[0]);
+        
+        // Set initial chitti amount from selected scheme
+        setPassbookFormData(prev => ({
+          ...prev,
+          chittiAmount: (schemes[0].chitValue || 0).toString()
+        }));
+        
+        // Fetch passbook entries for the selected scheme
+        await fetchPassbookEntries(customer.id, schemes[0].id);
+      } else {
+        // If no schemes found, show a message
+        setCustomerSchemes([]);
+        setSelectedPassbookScheme(null);
+        setPassbookEntries([]);
+        
+        toast.info('No schemes found for this customer', {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+      }
     } catch (error) {
-      handleApiError(error, 'Failed to load passbook entries');
+      handleApiError(error, 'Failed to load customer schemes');
     }
+  };
+
+
+  const handlePassbookSchemeChange = async (schemeId) => {
+    const selectedScheme = customerSchemes.find(scheme => scheme.id === schemeId);
+    if (selectedScheme) {
+      setSelectedPassbookScheme(selectedScheme);
+      
+      // Update chitti amount in form based on selected scheme
+      setPassbookFormData(prev => ({
+        ...prev,
+        chittiAmount: (selectedScheme.chitValue || 0).toString()
+      }));
+      
+      // Fetch real passbook entries for the selected scheme
+      try {
+        // Clear existing entries first
+        setPassbookEntries([]);
+        // Fetch passbook entries for the real scheme
+        await fetchPassbookEntries(selectedCustomer.id, schemeId);
+      } catch (error) {
+        handleApiError(error, 'Failed to load passbook entries for selected scheme');
+      }
+    }
+  };
+
+  // Filter passbook entries based on selected filters
+  const getFilteredPassbookEntries = () => {
+    if (!passbookEntries || passbookEntries.length === 0) return [];
+    
+    return passbookEntries.filter(entry => {
+      // Filter by frequency
+      if (passbookFrequencyFilter !== 'all' && entry.paymentFrequency !== passbookFrequencyFilter) {
+        return false;
+      }
+      
+      // Filter by date range
+      if (passbookDateFrom || passbookDateTo) {
+        const entryDate = new Date(entry.date);
+        const fromDate = passbookDateFrom ? new Date(passbookDateFrom) : null;
+        const toDate = passbookDateTo ? new Date(passbookDateTo) : null;
+        
+        if (fromDate && entryDate < fromDate) {
+          return false;
+        }
+        if (toDate && entryDate > toDate) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
   };
 
   const handlePassbookInputChange = (e) => {
     const { name, value } = e.target;
-    setPassbookFormData({
-      ...passbookFormData,
-      [name]: value
-    });
+    
+    // Skip chittiAmount updates as it's read-only and auto-managed
+    if (name === 'chittiAmount') {
+      return;
+    }
+    
+    // If chitLifting is changed to NO, clear the chitLiftingAmount
+    if (name === 'chitLifting' && value === 'NO') {
+      setPassbookFormData({
+        ...passbookFormData,
+        [name]: value,
+        chitLiftingAmount: '' // Clear the amount when chit lifting is NO
+      });
+    } else {
+      setPassbookFormData({
+        ...passbookFormData,
+        [name]: value
+      });
+    }
   };
 
   const handlePassbookSubmit = async (e) => {
@@ -429,15 +576,23 @@ const CustomerManagement = () => {
     if (selectedCustomer) {
       setIsPassbookSubmitting(true);
       try {
+        // Include the selected scheme in the form data
+        const entryData = {
+          ...passbookFormData,
+          schemeId: selectedPassbookScheme?.id || selectedCustomer.schemeId,
+          amount: passbookFormData.amount || passbookFormData.dailyPayment // Ensure amount is set
+        };
+        
         if (editingPassbookEntry) {
-          await updatePassbookEntry(selectedCustomer.id, passbookFormData);
+          await updatePassbookEntry(selectedCustomer.id, entryData);
           showSuccessMessage('Passbook entry updated successfully!');
         } else {
-          await createPassbookEntry(selectedCustomer.id, passbookFormData);
+          await createPassbookEntry(selectedCustomer.id, entryData);
           showSuccessMessage('Passbook entry created successfully!');
         }
-        // Refresh passbook entries after creation/update
-        await fetchPassbookEntries(selectedCustomer.id);
+        // Refresh passbook entries for the selected scheme after creation/update
+        const currentSchemeId = selectedPassbookScheme?.id || selectedCustomer.schemeId;
+        await fetchPassbookEntries(selectedCustomer.id, currentSchemeId);
         resetPassbookForm();
         setEditingPassbookEntry(null);
         setShowPassbookForm(false);
@@ -474,7 +629,8 @@ const CustomerManagement = () => {
       date: new Date(entry.date).toISOString().split('T')[0],
       dailyPayment: entry.dailyPayment.toString(),
       amount: entry.amount.toString(),
-      chittiAmount: entry.chittiAmount.toString(),
+      chittiAmount: (selectedPassbookScheme?.chitValue || 0).toString(), // Use selected scheme's chitValue instead of entry's value
+      chitLiftingAmount: entry.chitLiftingAmount ? entry.chitLiftingAmount.toString() : '',
       type: entry.type,
       paymentMethod: entry.paymentMethod || 'CASH',
       paymentFrequency: entry.paymentFrequency || 'DAILY',
@@ -685,15 +841,23 @@ const CustomerManagement = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount per Day</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {formData.durationType === 'MONTHS' ? 'Amount per Month' : 'Amount per Day'}
+                  </label>
                   <input
                     type="number"
                     name="amountPerDay"
                     value={formData.amountPerDay}
                     onChange={handleInputChange}
                     required
+                    placeholder={formData.durationType === 'MONTHS' ? 'Enter monthly amount' : 'Enter daily amount'}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {formData.durationType === 'MONTHS' 
+                      ? 'Amount will be automatically converted when switching to daily' 
+                      : 'Amount will be automatically converted when switching to monthly'}
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
@@ -991,7 +1155,17 @@ const CustomerManagement = () => {
                   Passbook - {selectedCustomer.name}
                 </h2>
                 <button
-                  onClick={() => setShowPassbookModal(false)}
+                  onClick={() => {
+                    setShowPassbookModal(false);
+                    setSelectedCustomer(null);
+                    setCustomerSchemes([]);
+                    setSelectedPassbookScheme(null);
+                    setEditingPassbookEntry(null);
+                    setPassbookFrequencyFilter('all');
+                    setPassbookDateFrom('');
+                    setPassbookDateTo('');
+                    clearAllPassbookData();
+                  }}
                   className="text-gray-400 hover:text-gray-600 text-2xl"
                 >
                   ×
@@ -1010,8 +1184,29 @@ const CustomerManagement = () => {
                     <p className="font-medium">{selectedCustomer.mobile}</p>
                   </div>
                   <div>
-                    <span className="text-sm text-gray-600">Chit Scheme:</span>
-                    <p className="font-medium">{getSchemeName(selectedCustomer.schemeId)}</p>
+                    <span className="text-sm text-gray-600">
+                      Chit Scheme:
+                      {customerSchemes.length > 1 && (
+                        <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                          {customerSchemes.length} schemes
+                        </span>
+                      )}
+                    </span>
+                    {customerSchemes.length > 1 ? (
+                      <select
+                        value={selectedPassbookScheme?.id || ''}
+                        onChange={(e) => handlePassbookSchemeChange(e.target.value)}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      >
+                        {customerSchemes.map((scheme) => (
+                          <option key={scheme.id} value={scheme.id}>
+                            {scheme.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <p className="font-medium">{selectedPassbookScheme?.name || getSchemeName(selectedCustomer.schemeId)}</p>
+                    )}
                   </div>
                   <div>
                     <span className="text-sm text-gray-600">Status:</span>
@@ -1023,17 +1218,95 @@ const CustomerManagement = () => {
               </div>
 
               {/* Add Passbook Entry Button */}
-              <div className="mb-6 flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-gray-900">Passbook Entries</h3>
-                <div className="flex space-x-2">
-                  
-                <button
-                  onClick={() => setShowPassbookForm(true)}
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  + Add Manual Entry
-                </button>
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-2">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Passbook Entries</h3>
+                    {/* {customerSchemes.length > 1 && selectedPassbookScheme && (
+                      <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-800">
+                          <span className="font-medium">Currently viewing:</span> {selectedPassbookScheme.name}
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          Switch schemes using the dropdown above to see different data
+                        </p>
+                      </div>
+                    )} */}
+                    {customerSchemes.length === 0 && (
+                      <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p className="text-sm text-yellow-800">
+                          <span className="font-medium">No schemes found</span> for this customer
+                        </p>
+                        <p className="text-xs text-yellow-600 mt-1">
+                          This customer is not enrolled in any chit schemes yet
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex space-x-2">
+                    
+                  <button
+                    onClick={() => {
+                      // Reset form and pre-fill with selected scheme data
+                      if (selectedPassbookScheme) {
+                        setPassbookFormData({
+                          month: '',
+                          date: new Date().toISOString().split('T')[0],
+                          dailyPayment: '',
+                          amount: '',
+                          chittiAmount: (selectedPassbookScheme.chitValue || 0).toString(),
+                          chitLiftingAmount: '',
+                          type: 'MANUAL',
+                          paymentMethod: 'CASH',
+                          paymentFrequency: 'DAILY',
+                          chitLifting: 'NO'
+                        });
+                      } else {
+                        resetPassbookForm();
+                      }
+                      setShowPassbookForm(true);
+                    }}
+                    disabled={customerSchemes.length === 0}
+                    className={`px-4 py-2 rounded-lg transition-colors ${
+                      customerSchemes.length === 0
+                        ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                        : 'bg-green-600 text-white hover:bg-green-700'
+                    }`}
+                  >
+                    + Add Manual Entry
+                  </button>
+                  </div>
                 </div>
+                
+                {/* Chit Lifting Description */}
+                {passbookEntries && passbookEntries.length > 0 && (() => {
+                  const chitLiftingEntries = passbookEntries.filter(entry => entry.chitLifting === 'YES');
+                  if (chitLiftingEntries.length > 0) {
+                    return (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                        <div className="flex items-center">
+                          <svg className="h-5 w-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-green-800">
+                              {chitLiftingEntries.length === 1 ? 'Chit Lifted Successfully' : `Chit Lifted ${chitLiftingEntries.length} Times`}
+                            </p>
+                            <div className="text-xs text-green-600 mt-1">
+                              {chitLiftingEntries.map((entry, index) => (
+                                <div key={entry.id} className="mb-1">
+                                  {index > 0 && <span className="text-green-400">• </span>}
+                                  Month {entry.month}, {new Date(entry.date).toLocaleDateString('en-GB')} - ₹{entry.amount?.toLocaleString() || entry.chittiAmount?.toLocaleString()}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
 
               {/* Passbook Loading and Error States */}
@@ -1072,9 +1345,34 @@ const CustomerManagement = () => {
                     <h3 className="text-xl font-bold text-gray-900 mb-4">
                       {editingPassbookEntry ? 'Edit Passbook Entry' : 'Add Passbook Entry'}
                     </h3>
+                    
+                    {/* Scheme Indicator */}
+                    {selectedPassbookScheme && (
+                      <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-blue-800">
+                              <span className="font-semibold">Selected Scheme:</span> {selectedPassbookScheme.name}
+                            </p>
+                            <p className="text-xs text-blue-600 mt-1">
+                              This entry will be associated with the currently selected scheme
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-blue-800">
+                              <span className="font-semibold">Chit Value:</span> ₹{(selectedPassbookScheme.chitValue || 0).toLocaleString()}
+                            </p>
+                            <p className="text-xs text-blue-600 mt-1">
+                              Pre-filled in Chitti Amount field
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
                     <form onSubmit={handlePassbookSubmit} className="space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div>
+                        {/* <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
                           <input
                             type="number"
@@ -1086,7 +1384,7 @@ const CustomerManagement = () => {
                             max="12"
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
-                        </div>
+                        </div> */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                           <input
@@ -1113,31 +1411,25 @@ const CustomerManagement = () => {
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
                         </div>
+                   
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹)</label>
-                          <input
-                            type="number"
-                            name="amount"
-                            value={passbookFormData.amount}
-                            onChange={handlePassbookInputChange}
-                            required
-                            min="0"
-                            step="0.01"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Chitti Amount (₹)</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Chitti Amount (₹)
+                            {selectedPassbookScheme && (
+                              <span className="ml-2 text-xs text-blue-600 font-normal">
+                                (from {selectedPassbookScheme.name})
+                              </span>
+                            )}
+                          </label>
                           <input
                             type="number"
                             name="chittiAmount"
-                            value={passbookFormData.chittiAmount}
-                            onChange={handlePassbookInputChange}
-                            required
-                            min="0"
-                            step="0.01"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            value={passbookFormData.chittiAmount || ''}
+                            readOnly
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 cursor-not-allowed"
+                            placeholder="Auto-filled from selected scheme"
                           />
+                     
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
@@ -1178,6 +1470,27 @@ const CustomerManagement = () => {
                             <option value="YES">Yes</option>
                           </select>
                         </div>
+
+                        {/* Chit Lifting Amount - Only show when Chit Lifting is YES */}
+                        {passbookFormData.chitLifting === 'YES' && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Chit Lifting Amount (₹)</label>
+                            <input
+                              type="number"
+                              name="chitLiftingAmount"
+                              value={passbookFormData.chitLiftingAmount || ''}
+                              onChange={handlePassbookInputChange}
+                              min="0"
+                              step="0.01"
+                              required
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="Enter chit lifting amount"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              Enter the amount received when the chit was lifted
+                            </p>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex justify-end space-x-3 pt-4">
@@ -1216,14 +1529,86 @@ const CustomerManagement = () => {
               {/* Passbook Entries Table */}
               <div className="bg-white rounded-lg shadow-sm border mb-6">
                 <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900">Passbook Entries</h3>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Passbook Entries</h3>
+                    
+                    {/* Passbook Filters */}
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      {/* Frequency Filter */}
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                        <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Frequency:</label>
+                        <select
+                          value={passbookFrequencyFilter}
+                          onChange={(e) => setPassbookFrequencyFilter(e.target.value)}
+                          className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="all">All</option>
+                          <option value="DAILY">Daily</option>
+                          <option value="MONTHLY">Monthly</option>
+                        </select>
+                      </div>
+                      
+                      {/* Date Range Filters */}
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                        <label className="text-sm font-medium text-gray-700 whitespace-nowrap">From:</label>
+                        <input
+                          type="date"
+                          value={passbookDateFrom}
+                          onChange={(e) => setPassbookDateFrom(e.target.value)}
+                          className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                        <label className="text-sm font-medium text-gray-700 whitespace-nowrap">To:</label>
+                        <input
+                          type="date"
+                          value={passbookDateTo}
+                          onChange={(e) => setPassbookDateTo(e.target.value)}
+                          className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Clear Filters Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPassbookFrequencyFilter('all');
+                          setPassbookDateFrom('');
+                          setPassbookDateTo('');
+                        }}
+                        className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Filter Summary */}
+                  {(() => {
+                    const filteredEntries = getFilteredPassbookEntries();
+                    const totalEntries = passbookEntries ? passbookEntries.length : 0;
+                    const hasActiveFilters = passbookFrequencyFilter !== 'all' || passbookDateFrom || passbookDateTo;
+                    
+                    if (hasActiveFilters && totalEntries > 0) {
+                      return (
+                        <div className="px-6 py-2 bg-blue-50 border-t border-blue-200">
+                          <p className="text-sm text-blue-800">
+                            Showing {filteredEntries.length} of {totalEntries} entries
+                            {passbookFrequencyFilter !== 'all' && ` (filtered by ${passbookFrequencyFilter.toLowerCase()} frequency)`}
+                            {(passbookDateFrom || passbookDateTo) && ' (filtered by date range)'}
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
                 <div className="overflow-x-auto">
-                  <div className="max-h-80 sm:max-h-96 overflow-y-auto">
+                  <div className="max-h-44 sm:max-h-44 overflow-y-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
@@ -1236,12 +1621,11 @@ const CustomerManagement = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {passbookEntries && passbookEntries.length > 0 ? (
-                        passbookEntries.map((entry) => (
+                      {(() => {
+                        const filteredEntries = getFilteredPassbookEntries();
+                        return filteredEntries && filteredEntries.length > 0 ? (
+                          filteredEntries.map((entry) => (
                           <tr key={entry.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {entry.month}
-                            </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {new Date(entry.date).toLocaleDateString('en-GB')}
                             </td>
@@ -1341,13 +1725,24 @@ const CustomerManagement = () => {
                               </div>
                             ) : (
                               <div className="text-center">
-                                <p className="text-gray-500 mb-2">No passbook entries found.</p>
-                                <p className="text-sm text-gray-400">Click "Add Manual Entry" to create custom entries.</p>
+                                <p className="text-gray-500 mb-2">
+                                  {getFilteredPassbookEntries().length === 0 && (passbookEntries && passbookEntries.length > 0)
+                                    ? 'No entries match the selected filters.'
+                                    : 'No passbook entries found.'
+                                  }
+                                </p>
+                                <p className="text-sm text-gray-400">
+                                  {getFilteredPassbookEntries().length === 0 && (passbookEntries && passbookEntries.length > 0)
+                                    ? 'Try adjusting your filters or click "Clear" to see all entries.'
+                                    : 'Click "Add Manual Entry" to create custom entries.'
+                                  }
+                                </p>
                               </div>
                             )}
                           </td>
                         </tr>
-                      )}
+                      );
+                      })()}
                     </tbody>
                   </table>
                   </div>

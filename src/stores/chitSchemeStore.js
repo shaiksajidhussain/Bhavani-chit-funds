@@ -255,6 +255,40 @@ export const useChitSchemeStore = create((set) => ({
     }
   },
 
+  // Add customer to scheme
+  addCustomerToScheme: async (schemeId, customerData) => {
+    set({ membersLoading: true, membersError: null });
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/chit-schemes/${schemeId}/members`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(customerData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        const error = new Error(errorData.message || 'Failed to add customer to scheme');
+        error.response = { data: errorData };
+        throw error;
+      }
+
+      const responseData = await response.json();
+      set({ membersLoading: false });
+      return responseData.data;
+    } catch (error) {
+      console.error('Error adding customer to scheme:', error);
+      set({ 
+        membersError: error.message, 
+        membersLoading: false
+      });
+      throw error;
+    }
+  },
+
   // Reset form data
   resetForm: () => {
     set({

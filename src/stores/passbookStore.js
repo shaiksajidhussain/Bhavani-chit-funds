@@ -16,6 +16,7 @@ const usePassbookStore = create((set, get) => ({
     dailyPayment: '',
     amount: '',
     chittiAmount: '',
+    chitLiftingAmount: '',
     type: 'MANUAL',
     paymentMethod: 'CASH',
     paymentFrequency: 'DAILY',
@@ -27,6 +28,8 @@ const usePassbookStore = create((set, get) => ({
   
   setFormData: (data) => set({ formData: { ...get().formData, ...data } }),
   
+  setPassbookEntries: (entries) => set({ entries }),
+  
   resetForm: () => set({
     formData: {
       month: '',
@@ -34,6 +37,7 @@ const usePassbookStore = create((set, get) => ({
       dailyPayment: '',
       amount: '',
       chittiAmount: '',
+      chitLiftingAmount: '',
       type: 'MANUAL',
       paymentMethod: 'CASH',
       paymentFrequency: 'DAILY',
@@ -42,7 +46,7 @@ const usePassbookStore = create((set, get) => ({
   }),
 
   // Fetch passbook entries for a customer
-  fetchPassbookEntries: async (customerId, filters = {}) => {
+  fetchPassbookEntries: async (customerId, schemeId = null, filters = {}) => {
     try {
       set({ loading: true, error: null });
       
@@ -54,6 +58,7 @@ const usePassbookStore = create((set, get) => ({
       if (filters.year) queryParams.append('year', filters.year);
       if (filters.sortBy) queryParams.append('sortBy', filters.sortBy);
       if (filters.sortOrder) queryParams.append('sortOrder', filters.sortOrder);
+      if (schemeId) queryParams.append('schemeId', schemeId);
 
       const url = `${API_BASE_URL}/passbook/customer/${customerId}?${queryParams.toString()}`;
       
@@ -104,11 +109,13 @@ const usePassbookStore = create((set, get) => ({
       
       const payload = {
         customerId,
+        schemeId: entryData.schemeId, // Include schemeId for proper linking
         month: parseInt(entryData.month),
         date: dateObj.toISOString(),
         dailyPayment: parseInt(entryData.dailyPayment),
         amount: parseInt(entryData.amount),
         chittiAmount: parseInt(entryData.chittiAmount),
+        chitLiftingAmount: entryData.chitLiftingAmount ? parseInt(entryData.chitLiftingAmount) : null,
         type: entryData.type || 'MANUAL',
         paymentMethod: entryData.paymentMethod || 'CASH',
         paymentFrequency: entryData.paymentFrequency || 'DAILY',
@@ -128,7 +135,9 @@ const usePassbookStore = create((set, get) => ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create passbook entry');
+        const error = new Error(errorData.message || 'Failed to create passbook entry');
+        error.response = { data: errorData }; // Preserve the full error response
+        throw error;
       }
 
       const data = await response.json();
@@ -168,11 +177,13 @@ const usePassbookStore = create((set, get) => ({
       }
       
       const payload = {
+        schemeId: entryData.schemeId, // Include schemeId for proper linking
         month: parseInt(entryData.month),
         date: dateObj.toISOString(),
         dailyPayment: parseInt(entryData.dailyPayment),
         amount: parseInt(entryData.amount),
         chittiAmount: parseInt(entryData.chittiAmount),
+        chitLiftingAmount: entryData.chitLiftingAmount ? parseInt(entryData.chitLiftingAmount) : null,
         paymentMethod: entryData.paymentMethod || 'CASH',
         paymentFrequency: entryData.paymentFrequency || 'DAILY',
         chitLifting: entryData.chitLifting || 'NO'
@@ -191,7 +202,9 @@ const usePassbookStore = create((set, get) => ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update passbook entry');
+        const error = new Error(errorData.message || 'Failed to update passbook entry');
+        error.response = { data: errorData }; // Preserve the full error response
+        throw error;
       }
 
       const data = await response.json();
@@ -242,7 +255,28 @@ const usePassbookStore = create((set, get) => ({
 
 
   // Clear error
-  clearError: () => set({ error: null })
+  clearError: () => set({ error: null }),
+
+  // Clear all passbook state
+  clearAll: () => set({
+    entries: [],
+    customer: null,
+    loading: false,
+    error: null,
+    showAddForm: false,
+    formData: {
+      month: '',
+      date: '',
+      dailyPayment: '',
+      amount: '',
+      chittiAmount: '',
+      chitLiftingAmount: '',
+      type: 'MANUAL',
+      paymentMethod: 'CASH',
+      paymentFrequency: 'DAILY',
+      chitLifting: 'NO'
+    }
+  })
 }));
 
 export default usePassbookStore;

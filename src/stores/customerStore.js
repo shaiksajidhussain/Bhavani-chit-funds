@@ -161,7 +161,9 @@ const useCustomerStore = create((set, get) => ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        const error = new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        error.response = { data: errorData, status: response.status };
+        throw error;
       }
 
       const responseData = await response.json();
@@ -216,7 +218,9 @@ const useCustomerStore = create((set, get) => ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        const error = new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        error.response = { data: errorData, status: response.status };
+        throw error;
       }
 
       const responseData = await response.json();
@@ -332,6 +336,39 @@ const useCustomerStore = create((set, get) => ({
 
   getPassbookEntries: (customerId) => {
     return get().passbookEntries[customerId] || [];
+  },
+
+  // Fetch schemes for a specific customer
+  fetchCustomerSchemes: async (customerId) => {
+    try {
+      set({ loading: true, error: null });
+      
+      const response = await fetch(`${API_BASE_URL}/customers/${customerId}/schemes`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        return data.data.schemes || [];
+      } else {
+        throw new Error(data.message || 'Failed to fetch customer schemes');
+      }
+    } catch (error) {
+      console.error('Error fetching customer schemes:', error);
+      set({ error: error.message });
+      throw error;
+    } finally {
+      set({ loading: false });
+    }
   }
 }));
 

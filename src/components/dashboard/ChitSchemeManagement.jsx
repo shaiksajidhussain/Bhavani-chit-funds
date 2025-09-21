@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useChitSchemeStore } from '../../stores/chitSchemeStore';
+import useCustomerStore from '../../stores/customerStore';
 
 const ChitSchemeManagement = () => {
   // Zustand store
@@ -26,8 +27,15 @@ const ChitSchemeManagement = () => {
     setShowMembersModal,
     setSelectedScheme,
     fetchSchemeMembers,
+    addCustomerToScheme,
     resetForm
   } = useChitSchemeStore();
+
+  // Customer store for fetching all customers
+  const {
+    customers,
+    fetchCustomers
+  } = useCustomerStore();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -47,21 +55,35 @@ const ChitSchemeManagement = () => {
   // Local loading states
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showAllCustomers, setShowAllCustomers] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [addingCustomerId, setAddingCustomerId] = useState(null);
+  const [isOpeningCustomerModal, setIsOpeningCustomerModal] = useState(false);
+  const [addedCustomerId, setAddedCustomerId] = useState(null);
 
   // Fetch schemes on component mount
   useEffect(() => {
     const loadSchemes = async () => {
       try {
         await fetchSchemes();
+        await fetchCustomers(); // Also fetch customers
       } catch (error) {
         handleApiError(error, 'Failed to load chit schemes');
       }
     };
     loadSchemes();
-  }, [fetchSchemes]);
+  }, [fetchSchemes, fetchCustomers]);
 
   // Ensure schemes is always an array
   const safeSchemes = Array.isArray(schemes) ? schemes : [];
+  const safeCustomers = Array.isArray(customers) ? customers : [];
+
+  // Filter customers based on search term
+  const filteredCustomers = safeCustomers.filter(customer => 
+    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    customer.mobile.includes(searchTerm) ||
+    customer.address.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   // Helper function to handle API errors and show toast notifications
   const handleApiError = (error, defaultMessage = 'An error occurred') => {
@@ -310,6 +332,57 @@ const ChitSchemeManagement = () => {
       await fetchSchemeMembers(scheme.id);
     } catch (error) {
       handleApiError(error, 'Failed to load scheme members');
+    }
+  };
+
+  const handleAddNewMember = async () => {
+    setIsOpeningCustomerModal(true);
+    try {
+      // Ensure customers are loaded
+      await fetchCustomers();
+      setShowAllCustomers(true);
+    } catch (error) {
+      handleApiError(error, 'Failed to load customers');
+    } finally {
+      setIsOpeningCustomerModal(false);
+    }
+  };
+
+  const handleAddCustomerToScheme = async (customer) => {
+    setAddingCustomerId(customer.id);
+    try {
+      // Prepare customer data for the API
+      const customerData = {
+        customerId: customer.id,
+        amountPerDay: customer.amountPerDay || selectedScheme.dailyPayment || 1000,
+        duration: customer.duration || selectedScheme.duration || 20,
+        durationType: customer.durationType || 'MONTHS',
+        startDate: customer.startDate || new Date().toISOString().split('T')[0],
+        lastDate: customer.lastDate || null
+      };
+
+      // Call the API to add customer to scheme
+      await addCustomerToScheme(selectedScheme.id, customerData);
+      
+      // Show success state briefly
+      setAddedCustomerId(customer.id);
+      showSuccessMessage(`${customer.name} added to ${selectedScheme.name} successfully!`);
+      
+      // Wait a moment to show success state, then close modal and refresh
+      setTimeout(async () => {
+        setShowAllCustomers(false);
+        setAddedCustomerId(null);
+        
+        // Refresh the scheme members and customers list
+        await Promise.all([
+          fetchSchemeMembers(selectedScheme.id),
+          fetchCustomers()
+        ]);
+      }, 1500);
+    } catch (error) {
+      handleApiError(error, 'Failed to add customer to scheme');
+    } finally {
+      setAddingCustomerId(null);
     }
   };
 
@@ -932,10 +1005,172 @@ const ChitSchemeManagement = () => {
                 <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto">
                   Export Members List
                 </button>
-                <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors w-full sm:w-auto">
-                  Add New Member
+                <button 
+                  onClick={handleAddNewMember}
+                  disabled={isOpeningCustomerModal}
+                  className={`inline-flex items-center px-4 py-2 rounded-lg transition-colors w-full sm:w-auto ${
+                    isOpeningCustomerModal
+                      ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                      : 'bg-green-600 text-white hover:bg-green-700'
+                  }`}
+                >
+                  {isOpeningCustomerModal ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      Add New Member
+                    </>
+                  )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* All Customers Modal for Adding to Scheme */}
+      {showAllCustomers && selectedScheme && (
+        <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-60 p-2 sm:p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[95vh] overflow-y-auto">
+            <div className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+                  Add Customer to {selectedScheme.name}
+                </h2>
+                <button
+                  onClick={() => setShowAllCustomers(false)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* Search Bar */}
+              <div className="mb-6">
+                <input
+                  type="text"
+                  placeholder="Search customers by name, mobile, or address..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Customers List */}
+              <div className="bg-white rounded-lg shadow-sm border">
+                <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900">Available Customers</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <div className="max-h-80 sm:max-h-96 overflow-y-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">S. No</th>
+                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Photo</th>
+                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mobile</th>
+                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Current Scheme</th>
+                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {filteredCustomers.map((customer, index) => (
+                          <tr key={customer.id} className="hover:bg-gray-50">
+                            <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {index + 1}
+                            </td>
+                            <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {customer.photo ? (
+                                <img
+                                  src={customer.photo}
+                                  alt={`${customer.name} photo`}
+                                  className="h-8 w-8 sm:h-10 sm:w-10 rounded-full object-cover"
+                                />
+                              ) : (
+                                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                                  <span className="text-gray-500 text-xs font-medium">
+                                    {customer.name.charAt(0).toUpperCase()}
+                                  </span>
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {customer.name}
+                            </td>
+                            <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {customer.mobile}
+                            </td>
+                            <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden md:table-cell">
+                              {customer.scheme?.name || 'No scheme'}
+                            </td>
+                            <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(customer.status)}`}>
+                                {customer.status}
+                              </span>
+                            </td>
+                            <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              <button
+                                onClick={() => handleAddCustomerToScheme(customer)}
+                                disabled={addingCustomerId === customer.id || addedCustomerId === customer.id}
+                                className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                                  addingCustomerId === customer.id
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                    : addedCustomerId === customer.id
+                                    ? 'bg-green-200 text-green-800 cursor-not-allowed'
+                                    : 'bg-green-100 text-green-700 hover:bg-green-200 hover:text-green-800'
+                                }`}
+                              >
+                                {addingCustomerId === customer.id ? (
+                                  <>
+                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Adding...
+                                  </>
+                                ) : addedCustomerId === customer.id ? (
+                                  <>
+                                    <svg className="w-4 h-4 mr-1.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    Added!
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                    </svg>
+                                    Add to Scheme
+                                  </>
+                                )}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* No customers message */}
+              {filteredCustomers.length === 0 && (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 mb-2">No customers found.</p>
+                  <p className="text-sm text-gray-400">Try adjusting your search terms.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

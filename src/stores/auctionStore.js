@@ -383,6 +383,51 @@ const useAuctionStore = create((set, get) => ({
     }
   },
 
+  // Fetch members for a specific scheme
+  fetchSchemeMembers: async (schemeId) => {
+    try {
+      const response = await fetch(`${apiConfig.baseUrl}/chit-schemes/${schemeId}/members`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Fetched scheme members:', data);
+
+      if (data.success) {
+        // Extract customer data from the scheme members response
+        // The members array already contains customer properties directly
+        const members = data.data?.members?.map(member => ({
+          id: member.id,
+          name: member.name,
+          mobile: member.mobile,
+          address: member.address,
+          status: member.status
+        })) || [];
+        
+        set({ 
+          members: members
+        });
+        return members;
+      } else {
+        throw new Error(data.message || 'Failed to fetch scheme members');
+      }
+    } catch (error) {
+      console.error('Error fetching scheme members:', error);
+      set({ 
+        error: error.message || 'Failed to fetch scheme members',
+        members: [] // Clear members on error
+      });
+      throw error;
+    }
+  },
+
   // Get upcoming auctions
   fetchUpcomingAuctions: async (limit = 10) => {
     set({ loading: true, error: null });

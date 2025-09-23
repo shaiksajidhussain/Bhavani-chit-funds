@@ -405,7 +405,7 @@ const ChitSchemeManagement = () => {
 
 
   return (
-    <div className="space-y-4 lg:space-y-6">
+    <div className="space-y-4 lg:space-y-6 px-2 sm:px-4 py-4 lg:py-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Chit Scheme Management</h1>
@@ -435,7 +435,7 @@ const ChitSchemeManagement = () => {
       {/* Predefined Schemes */}
       <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
         <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Predefined Schemes</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 overflow-hidden">
           <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
             <h3 className="font-semibold text-gray-900">₹5,00,000 - 30 months</h3>
             <p className="text-sm text-gray-600">₹500 daily - 30 members</p>
@@ -675,6 +675,7 @@ const ChitSchemeManagement = () => {
       {/* Schemes Table */}
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <div className="overflow-x-auto">
+          <div className="max-h-80 sm:max-h-96 overflow-y-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -700,15 +701,15 @@ const ChitSchemeManagement = () => {
               ) : (
                 safeSchemes.map((scheme) => (
                 <tr key={scheme.id} className="hover:bg-gray-50">
-                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                    <div>
+                  <td className="px-3 sm:px-6 py-4">
+                    <div className="max-w-48">
                       <button
                         onClick={() => handleViewMembers(scheme)}
-                        className="text-sm font-medium text-blue-600 hover:text-blue-900 hover:underline cursor-pointer truncate block"
+                        className="text-sm font-medium text-blue-600 hover:text-blue-900 hover:underline cursor-pointer truncate block w-full text-left"
                       >
                         {scheme.name}
                       </button>
-                      <div className="text-xs text-gray-500">ID: {scheme.id}</div>
+                      <div className="text-xs text-gray-500 truncate">ID: {scheme.id}</div>
                       {/* Mobile: Show key info below name */}
                       <div className="sm:hidden mt-1 text-xs text-gray-600">
                         <div>₹{(scheme.chitValue || 0).toLocaleString()}</div>
@@ -780,18 +781,18 @@ const ChitSchemeManagement = () => {
                       {scheme.status || 'Unknown'}
                     </span>
                   </td>
-                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <td className="px-3 sm:px-6 py-4 text-sm font-medium">
                     <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2">
                       <button
                         onClick={() => handleEdit(scheme)}
-                        className="text-blue-600 hover:text-blue-900 text-xs sm:text-sm"
+                        className="text-blue-600 hover:text-blue-900 text-xs sm:text-sm whitespace-nowrap"
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => handleDelete(scheme.id)}
                         disabled={isDeleting}
-                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center text-xs sm:text-sm"
+                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center text-xs sm:text-sm whitespace-nowrap"
                       >
                         {isDeleting ? (
                           <>
@@ -810,6 +811,7 @@ const ChitSchemeManagement = () => {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 
@@ -899,6 +901,7 @@ const ChitSchemeManagement = () => {
                 {/* Members Table */}
                 {!membersLoading && !membersError && (
                   <div className="overflow-x-auto">
+                    <div className="max-h-64 sm:max-h-80 overflow-y-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
@@ -968,6 +971,7 @@ const ChitSchemeManagement = () => {
                         )}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1071,7 +1075,7 @@ const ChitSchemeManagement = () => {
                   <h3 className="text-lg font-semibold text-gray-900">Available Customers</h3>
                 </div>
                 <div className="overflow-x-auto">
-                  <div className="max-h-80 sm:max-h-96 overflow-y-auto">
+                  <div className="max-h-64 sm:max-h-80 overflow-y-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
@@ -1105,25 +1109,29 @@ const ChitSchemeManagement = () => {
                                 </div>
                               )}
                             </td>
-                            <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {customer.name}
+                            <td className="px-3 sm:px-6 py-4 text-sm font-medium text-gray-900">
+                              <div className="max-w-32 truncate" title={customer.name}>
+                                {customer.name}
+                              </div>
                             </td>
                             <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {customer.mobile}
                             </td>
-                            <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden md:table-cell">
-                              {customer.scheme?.name || 'No scheme'}
+                            <td className="px-3 sm:px-6 py-4 text-sm text-gray-900 hidden md:table-cell">
+                              <div className="max-w-24 truncate" title={customer.scheme?.name || 'No scheme'}>
+                                {customer.scheme?.name || 'No scheme'}
+                              </div>
                             </td>
                             <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">
                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(customer.status)}`}>
                                 {customer.status}
                               </span>
                             </td>
-                            <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <td className="px-3 sm:px-6 py-4 text-sm font-medium">
                               <button
                                 onClick={() => handleAddCustomerToScheme(customer)}
                                 disabled={addingCustomerId === customer.id || addedCustomerId === customer.id}
-                                className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                                className={`inline-flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
                                   addingCustomerId === customer.id
                                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                     : addedCustomerId === customer.id

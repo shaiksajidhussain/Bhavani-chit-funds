@@ -3,6 +3,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import useCustomerStore from '../../stores/customerStore';
 import usePassbookStore from '../../stores/passbookStore';
+import apiConfig from '../../components/Config';
 
 const AdminDashboard = ({ onNavigate }) => {
   // Customer store
@@ -10,7 +11,6 @@ const AdminDashboard = ({ onNavigate }) => {
     customers,
     chitSchemes,
     loading: customersLoading,
-    error: customersError,
     selectedCustomer,
     showPassbookModal,
     setShowPassbookModal,
@@ -39,6 +39,16 @@ const AdminDashboard = ({ onNavigate }) => {
     clearAll: clearAllPassbookData
   } = usePassbookStore();
 
+  // Dashboard state
+  const [dashboardData, setDashboardData] = useState({
+    overview: null,
+    recentActivities: [],
+    dailyStats: null,
+    passbookStats: null
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   // Local state
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -61,19 +71,114 @@ const AdminDashboard = ({ onNavigate }) => {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
 
-  // Fetch customers on component mount
+  // API functions
+  const fetchDashboardOverview = async () => {
+    try {
+      const response = await fetch(`${apiConfig.baseUrl}/reports/dashboard/overview`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch dashboard overview');
+      const data = await response.json();
+      return data.success ? data.data.overview : null;
+    } catch (error) {
+      console.error('Error fetching dashboard overview:', error);
+      return null;
+    }
+  };
+
+  const fetchRecentActivities = async () => {
+    try {
+      const response = await fetch(`${apiConfig.baseUrl}/reports/recent-activities?limit=8`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch recent activities');
+      const data = await response.json();
+      return data.success ? data.data.activities : [];
+    } catch (error) {
+      console.error('Error fetching recent activities:', error);
+      return [];
+    }
+  };
+
+  const fetchDailyStats = async () => {
+    try {
+      const response = await fetch(`${apiConfig.baseUrl}/reports/daily`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch daily stats');
+      const data = await response.json();
+      return data.success ? data.data : null;
+    } catch (error) {
+      console.error('Error fetching daily stats:', error);
+      return null;
+    }
+  };
+
+  const fetchPassbookStats = async () => {
+    try {
+      const response = await fetch(`${apiConfig.baseUrl}/reports/passbook-stats`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch passbook stats');
+      const data = await response.json();
+      return data.success ? data.data.stats : null;
+    } catch (error) {
+      console.error('Error fetching passbook stats:', error);
+      return null;
+    }
+  };
+
+  // Fetch dashboard data on component mount
   useEffect(() => {
-    const loadData = async () => {
+    const loadDashboardData = async () => {
+      setLoading(true);
+      setError(null);
+      
       try {
+        const [overview, recentActivities, dailyStats, passbookStats] = await Promise.all([
+          fetchDashboardOverview(),
+          fetchRecentActivities(),
+          fetchDailyStats(),
+          fetchPassbookStats()
+        ]);
+
+        setDashboardData({
+          overview,
+          recentActivities,
+          dailyStats,
+          passbookStats
+        });
+
+        // Also fetch customers and schemes for search functionality
         await Promise.all([
           fetchCustomers(),
           fetchChitSchemes()
         ]);
       } catch (error) {
-        console.error('Error loading data:', error);
+        console.error('Error loading dashboard data:', error);
+        setError('Failed to load dashboard data');
+      } finally {
+        setLoading(false);
       }
     };
-    loadData();
+
+    loadDashboardData();
   }, [fetchCustomers, fetchChitSchemes]);
 
   // Click outside handler to close search results
@@ -478,7 +583,7 @@ const AdminDashboard = ({ onNavigate }) => {
       };
       
       // Call backend API to generate PDF
-      const response = await fetch(`https://bhavani-chit-funds-backend.vercel.app/api/passbook/export-pdf`, {
+      const response = await fetch(`${apiConfig.baseUrl}/passbook/export-pdf`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -720,57 +825,54 @@ const AdminDashboard = ({ onNavigate }) => {
     setShowPassbookForm(true);
   };
 
-  // Calculate overview data from real data
+  // Calculate overview data from API data
   const safeCustomers = Array.isArray(customers) ? customers : [];
+  const overview = dashboardData.overview;
+  const passbookStats = dashboardData.passbookStats;
   
-  // Calculate daily and monthly profits based on actual scheme commission rates
-  const dailyProfits = safeCustomers.reduce((sum, customer) => {
-    if (customer.status === 'ACTIVE' && customer.amountPerDay) {
-      // Find the chit scheme for this customer
-      const scheme = chitSchemes.find(s => s.id === customer.schemeId);
-      if (scheme) {
-        // Use scheme's commission rate, default to 5% if not set
-        const commissionRate = scheme.commissionRate || 0.05;
-        return sum + (customer.amountPerDay * commissionRate);
-      }
-      // Fallback to 5% if scheme not found
-      return sum + (customer.amountPerDay * 0.05);
-    }
-    return sum;
-  }, 0);
+  // Use real passbook data for profit calculations
+  const dailyProfits = passbookStats?.totals?.dailyProfits || 0;
+  const monthlyProfits = passbookStats?.totals?.monthlyProfits || 0;
+  const totalExpectedDailyCollection = passbookStats?.totals?.expectedDaily || 0;
+  const totalActualDailyCollection = passbookStats?.totals?.actualDaily || 0;
+  const totalExpectedMonthlyCollection = totalExpectedDailyCollection * (passbookStats?.totals?.daysInMonth || 30);
+  const collectionRate = passbookStats?.totals?.collectionRate || 0;
   
-  // Calculate monthly profits based on actual days in current month
-  const currentDate = new Date();
-  const daysInCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-  const monthlyProfits = dailyProfits * daysInCurrentMonth;
-  
-  // Calculate additional profit metrics
-  const totalExpectedDailyCollection = safeCustomers
-    .filter(c => c.status === 'ACTIVE')
-    .reduce((sum, customer) => sum + (customer.amountPerDay || 0), 0);
-  
-  const totalExpectedMonthlyCollection = totalExpectedDailyCollection * daysInCurrentMonth;
-  
-  // Calculate profit percentage
-  const dailyProfitPercentage = totalExpectedDailyCollection > 0 
-    ? ((dailyProfits / totalExpectedDailyCollection) * 100).toFixed(2)
+  // Calculate profit percentages based on actual collections
+  const dailyProfitPercentage = totalActualDailyCollection > 0 
+    ? ((dailyProfits / totalActualDailyCollection) * 100).toFixed(2)
     : 0;
   
-  const monthlyProfitPercentage = totalExpectedMonthlyCollection > 0 
-    ? ((monthlyProfits / totalExpectedMonthlyCollection) * 100).toFixed(2)
+  const monthlyProfitPercentage = (totalActualDailyCollection * (passbookStats?.totals?.daysInMonth || 30)) > 0 
+    ? ((monthlyProfits / (totalActualDailyCollection * (passbookStats?.totals?.daysInMonth || 30))) * 100).toFixed(2)
     : 0;
-
+  
+  // Use real API data when available, fallback to calculated data
   const overviewData = {
-    totalCustomers: safeCustomers.length,
-    activeChits: safeCustomers.filter(c => c.status === 'ACTIVE').length,
-    totalCollectionToday: 0, // This would need to be calculated from collections
+    totalCustomers: overview?.customers?.total || safeCustomers.length,
+    activeChits: overview?.customers?.active || safeCustomers.filter(c => c.status === 'ACTIVE').length,
+    totalSchemes: overview?.schemes?.total || chitSchemes.length,
+    activeSchemes: overview?.schemes?.active || chitSchemes.filter(s => s.status === 'ACTIVE').length,
+    totalCollectionToday: totalActualDailyCollection,
+    totalRevenue: overview?.revenue?.total || 0,
+    totalCollections: overview?.collections?.total || 0,
+    pendingCollections: overview?.collections?.pending || 0,
+    totalAuctions: overview?.auctions?.total || 0,
+    paidMembers: passbookStats?.summary?.paidCount || 0,
+    pendingMembers: passbookStats?.summary?.pendingCount || 0,
+    collectionRate: collectionRate,
+    defaulters: passbookStats?.summary?.backlogCount || 0,
+    // Profit calculations from real passbook data
     dailyProfits: dailyProfits,
     monthlyProfits: monthlyProfits,
     dailyProfitPercentage: parseFloat(dailyProfitPercentage),
     monthlyProfitPercentage: parseFloat(monthlyProfitPercentage),
     totalExpectedDailyCollection: totalExpectedDailyCollection,
+    totalActualDailyCollection: totalActualDailyCollection,
     totalExpectedMonthlyCollection: totalExpectedMonthlyCollection,
-    chitAuctionUpdates: 0 // This would need to be calculated from auctions
+    // Backlog data
+    totalBacklogAmount: passbookStats?.summary?.totalBacklogAmount || 0,
+    backlogCount: passbookStats?.summary?.backlogCount || 0
   };
 
   const quickActions = [
@@ -787,247 +889,488 @@ const AdminDashboard = ({ onNavigate }) => {
     }
   };
 
-  const recentActivities = [
-    { id: 1, type: 'collection', customer: 'Rajesh Kumar', amount: 2500, time: '2 hours ago' },
-    { id: 2, type: 'auction', customer: 'Priya Sharma', amount: 500000, time: '4 hours ago' },
-    { id: 3, type: 'registration', customer: 'Amit Singh', amount: 0, time: '6 hours ago' },
-    { id: 4, type: 'collection', customer: 'Sunita Patel', amount: 500, time: '8 hours ago' }
-  ];
+  // Format time ago helper
+  const getTimeAgo = (date) => {
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - new Date(date)) / 1000);
+    
+    if (diffInSeconds < 60) return 'Just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+    if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+    return `${Math.floor(diffInSeconds / 2592000)} months ago`;
+  };
+
+  // Use real recent activities from API
+  const recentActivities = dashboardData.recentActivities.map(activity => ({
+    ...activity,
+    time: getTimeAgo(activity.date)
+  }));
 
 
   return (
-    <div className="space-y-6 h-full overflow-y-auto px-4 py-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-        <div className="text-sm text-gray-500">
-          Last updated: {new Date().toLocaleString()}
-        </div>
-      </div>
-
-      {/* Loading and Error States */}
-      {customersLoading && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-            <span className="text-blue-800">Loading dashboard data...</span>
-          </div>
-        </div>
-      )}
-
-      {customersError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <svg className="h-5 w-5 text-red-400 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-            </svg>
-            <span className="text-red-800">Error: {customersError}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+      <div className="space-y-8 p-6">
+        {/* Header */}
+        <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Customers</p>
-              <p className="text-2xl font-bold text-gray-900">{overviewData.totalCustomers.toLocaleString()}</p>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                Admin Dashboard
+              </h1>
+              <p className="text-gray-600 mt-2">Welcome back! Here's what's happening with your chit fund business.</p>
             </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <span className="text-2xl">👥</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Active Chits</p>
-              <p className="text-2xl font-bold text-gray-900">{overviewData.activeChits}</p>
-            </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <span className="text-2xl">📋</span>
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <p className="text-sm text-gray-500">Last updated</p>
+                <p className="text-sm font-medium text-gray-900">{new Date().toLocaleString()}</p>
+              </div>
+              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-xl">📊</span>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Today's Collection</p>
-              <p className="text-2xl font-bold text-gray-900">₹{overviewData.totalCollectionToday.toLocaleString()}</p>
+        {/* Loading and Error States */}
+        {loading && (
+          <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
+            <div className="flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+              <span className="text-lg text-gray-700">Loading dashboard data...</span>
             </div>
-            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <span className="text-2xl">💰</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
+            <div className="flex items-center">
+              <svg className="h-6 w-6 text-red-400 mr-3" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <span className="text-red-800 font-medium">Error: {error}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Overview Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {/* Total Customers Card */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 mb-1">Total Customers</p>
+                <p className="text-3xl font-bold text-gray-900">{overviewData.totalCustomers.toLocaleString()}</p>
+                <p className="text-xs text-green-600 mt-1">
+                  {overviewData.activeChits} active
+                </p>
+              </div>
+              <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center">
+                <span className="text-2xl text-white">👥</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Active Schemes Card */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 mb-1">Active Schemes</p>
+                <p className="text-3xl font-bold text-gray-900">{overviewData.activeSchemes}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {overviewData.totalSchemes} total schemes
+                </p>
+              </div>
+              <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-2xl flex items-center justify-center">
+                <span className="text-2xl text-white">📋</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Today's Collection Card
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 mb-1">Today's Collection</p>
+                <p className="text-3xl font-bold text-gray-900">₹{overviewData.totalCollectionToday.toLocaleString()}</p>
+                <p className="text-xs text-blue-600 mt-1">
+                  {overviewData.collectionRate}% collection rate
+                </p>
+              </div>
+              <div className="w-16 h-16 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl flex items-center justify-center">
+                <span className="text-2xl text-white">💰</span>
+              </div>
+            </div>
+          </div> */}
+
+          {/* Total Revenue Card */}
+          {/* <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 mb-1">Total Revenue</p>
+                <p className="text-3xl font-bold text-gray-900">₹{overviewData.totalRevenue.toLocaleString()}</p>
+                <p className="text-xs text-purple-600 mt-1">
+                  {overviewData.totalCollections} collections
+                </p>
+              </div>
+              <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-2xl flex items-center justify-center">
+                <span className="text-2xl text-white">📈</span>
+              </div>
+            </div>
+          </div> */}
+
+          {/* Daily Stats Cards */}
+          {/* <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 mb-1">Paid Members</p>
+                <p className="text-3xl font-bold text-green-600">{overviewData.paidMembers}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {overviewData.pendingMembers} pending
+                </p>
+              </div>
+              <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-green-500 rounded-2xl flex items-center justify-center">
+                <span className="text-2xl text-white">✅</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 mb-1">Pending Members</p>
+                <p className="text-3xl font-bold text-orange-600">{overviewData.pendingMembers}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Need follow-up
+                </p>
+              </div>
+              <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl flex items-center justify-center">
+                <span className="text-2xl text-white">⏰</span>
+              </div>
+            </div>
+          </div> */}
+{/* 
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 mb-1">Total Auctions</p>
+                <p className="text-3xl font-bold text-gray-900">{overviewData.totalAuctions}</p>
+                <p className="text-xs text-blue-600 mt-1">
+                  Conducted
+                </p>
+              </div>
+              <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center">
+                <span className="text-2xl text-white">🔨</span>
+              </div>
+            </div>
+          </div> */}
+{/* 
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 mb-1">Defaulters</p>
+                <p className="text-3xl font-bold text-red-600">{overviewData.defaulters}</p>
+                <p className="text-xs text-red-500 mt-1">
+                  Need attention
+                </p>
+              </div>
+              <div className="w-16 h-16 bg-gradient-to-r from-red-500 to-pink-500 rounded-2xl flex items-center justify-center">
+                <span className="text-2xl text-white">⚠️</span>
+              </div>
+            </div>
+          </div> */}
+
+          {/* Today's Collection Card */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 mb-1">Today's Collection</p>
+                <p className="text-3xl font-bold text-blue-600">₹{overviewData.totalActualDailyCollection.toLocaleString()}</p>
+                <p className="text-xs text-blue-600 mt-1">
+                  {overviewData.collectionRate}% of ₹{overviewData.totalExpectedDailyCollection.toLocaleString()} expected
+                </p>
+              </div>
+              <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center">
+                <span className="text-2xl text-white">💰</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Daily Profits Card */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 mb-1">Daily Profits</p>
+                <p className="text-3xl font-bold text-green-600">₹{overviewData.dailyProfits.toLocaleString()}</p>
+                <p className="text-xs text-green-600 mt-1">
+                  {overviewData.dailyProfitPercentage}% of actual collections
+                </p>
+              </div>
+              <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-green-500 rounded-2xl flex items-center justify-center">
+                <span className="text-2xl text-white">📈</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Monthly Profits Card */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 mb-1">Monthly Profits</p>
+                <p className="text-3xl font-bold text-purple-600">₹{overviewData.monthlyProfits.toLocaleString()}</p>
+                <p className="text-xs text-purple-600 mt-1">
+                  {overviewData.monthlyProfitPercentage}% of actual collections
+                </p>
+              </div>
+              <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-2xl flex items-center justify-center">
+                <span className="text-2xl text-white">💰</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Backlog Amount Card */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 mb-1">Backlog Amount</p>
+                <p className="text-3xl font-bold text-red-600">₹{overviewData.totalBacklogAmount.toLocaleString()}</p>
+                <p className="text-xs text-red-600 mt-1">
+                  {overviewData.backlogCount} customers pending
+                </p>
+              </div>
+              <div className="w-16 h-16 bg-gradient-to-r from-red-500 to-pink-500 rounded-2xl flex items-center justify-center">
+                <span className="text-2xl text-white">⚠️</span>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Daily Profits</p>
-              <p className="text-2xl font-bold text-gray-900">₹{overviewData.dailyProfits.toLocaleString()}</p>
-              <p className="text-xs text-gray-500 mt-1">
-                {overviewData.dailyProfitPercentage}% of ₹{overviewData.totalExpectedDailyCollection.toLocaleString()}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <span className="text-2xl">📈</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Monthly Profits</p>
-              <p className="text-2xl font-bold text-gray-900">₹{overviewData.monthlyProfits.toLocaleString()}</p>
-              <p className="text-xs text-gray-500 mt-1">
-                {overviewData.monthlyProfitPercentage}% of ₹{overviewData.totalExpectedMonthlyCollection.toLocaleString()}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <span className="text-2xl">💰</span>
-            </div>
-          </div>
-        </div>
-
-        {/* <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Auction Updates</p>
-              <p className="text-2xl font-bold text-gray-900">{overviewData.chitAuctionUpdates}</p>
-            </div>
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <span className="text-2xl">🔨</span>
-            </div>
-          </div>
-        </div> */}
-      </div>
-
-      {/* Quick Actions */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        
-        {/* Search Members */}
-        <div className="mb-6" ref={setSearchRef}>
-          <h3 className="text-lg font-medium text-gray-700 mb-3">Search Members</h3>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search by name or mobile number..."
-              value={searchTerm}
-              onChange={handleSearch}
-              className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              {customersLoading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-              ) : (
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              )}
-            </div>
-          </div>
-          
-          {/* Search Results Dropdown */}
-          {showSearchResults && (
-            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-              {searchResults.length > 0 ? (
-                searchResults.map((customer) => (
-                  <div
-                    key={customer.id}
-                    onClick={() => handleMemberClick(customer)}
-                    className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        {customer.photo ? (
-                          <img
-                            src={customer.photo}
-                            alt={`${customer.name} photo`}
-                            className="h-8 w-8 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
-                            <span className="text-gray-500 text-xs font-medium">
-                              {customer.name.charAt(0).toUpperCase()}
+        {/* Quick Actions & Search */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Search Members */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+              <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                <span className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                  🔍
+                </span>
+                Search Members
+              </h2>
+              
+              <div className="relative" ref={setSearchRef}>
+                <input
+                  type="text"
+                  placeholder="Search by name or mobile number..."
+                  value={searchTerm}
+                  onChange={handleSearch}
+                  className="w-full px-4 py-3 pl-12 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                />
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  {customersLoading ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                  ) : (
+                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+              
+              {/* Search Results Dropdown */}
+              {showSearchResults && (
+                <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto">
+                  {searchResults.length > 0 ? (
+                    searchResults.map((customer) => (
+                      <div
+                        key={customer.id}
+                        onClick={() => handleMemberClick(customer)}
+                        className="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors duration-200"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            {customer.photo ? (
+                              <img
+                                src={customer.photo}
+                                alt={`${customer.name} photo`}
+                                className="h-10 w-10 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center">
+                                <span className="text-white text-sm font-medium">
+                                  {customer.name.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-medium text-gray-900">{customer.name}</p>
+                              <p className="text-sm text-gray-600">{customer.mobile}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-gray-500">ID: M{customer.id.toString().padStart(4, '0')}</p>
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              customer.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
+                              customer.status === 'COMPLETED' ? 'bg-blue-100 text-blue-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {customer.status}
                             </span>
                           </div>
-                        )}
-                        <div>
-                          <p className="font-medium text-gray-900">{customer.name}</p>
-                          <p className="text-sm text-gray-600">{customer.mobile}</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-500">ID: M{customer.id.toString().padStart(4, '0')}</p>
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          customer.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
-                          customer.status === 'COMPLETED' ? 'bg-blue-100 text-blue-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {customer.status}
-                        </span>
-                      </div>
+                    ))
+                  ) : (
+                    <div className="px-4 py-6 text-gray-500 text-center">
+                      <div className="text-4xl mb-2">🔍</div>
+                      <p>No members found</p>
                     </div>
-                  </div>
-                ))
-              ) : (
-                <div className="px-4 py-3 text-gray-500 text-center">
-                  No members found
+                  )}
                 </div>
               )}
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* Action Buttons */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {quickActions.map((action) => (
-            <button
-              key={action.id}
-              onClick={() => handleQuickAction(action)}
-              className={`${action.color} text-white p-4 rounded-lg hover:opacity-90 transition-opacity cursor-pointer`}
-            >
-              <div className="flex items-center space-x-3">
-                <span className="text-2xl">{action.icon}</span>
-                <span className="font-medium">{action.title}</span>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Recent Activities */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Activities</h2>
-        <div className="space-y-3">
-          {recentActivities.map((activity) => (
-            <div key={activity.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <span className="text-lg">
-                  {activity.type === 'collection' ? '💰' : 
-                   activity.type === 'auction' ? '🔨' : '👤'}
+          {/* Quick Actions */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+              <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                <span className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                  ⚡
                 </span>
-                <div>
-                  <p className="font-medium text-gray-900">{activity.customer}</p>
-                  <p className="text-sm text-gray-600 capitalize">{activity.type}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                {activity.amount > 0 && (
-                  <p className="font-medium text-gray-900">₹{activity.amount.toLocaleString()}</p>
-                )}
-                <p className="text-sm text-gray-500">{activity.time}</p>
+                Quick Actions
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {quickActions.map((action) => (
+                  <button
+                    key={action.id}
+                    onClick={() => handleQuickAction(action)}
+                    className={`${action.color} text-white p-6 rounded-xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group`}
+                  >
+                    <div className="flex items-center space-x-4">
+                      <span className="text-3xl group-hover:scale-110 transition-transform duration-300">{action.icon}</span>
+                      <span className="font-semibold text-lg">{action.title}</span>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
-          ))}
+          </div>
         </div>
-      </div>
+
+        {/* Backlog Details */}
+        {passbookStats?.breakdown?.backlogs && passbookStats.breakdown.backlogs.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                <span className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center mr-3">
+                  ⚠️
+                </span>
+                Pending Payments (Backlogs)
+              </h2>
+              <span className="text-sm text-red-600 font-medium">
+                {passbookStats.breakdown.backlogs.length} customers
+              </span>
+            </div>
+            
+            <div className="max-h-64 overflow-y-auto">
+              <div className="space-y-3">
+                {passbookStats.breakdown.backlogs.slice(0, 10).map((backlog, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                        <span className="text-red-600 font-medium text-sm">
+                          {backlog.customerName.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{backlog.customerName}</p>
+                        <p className="text-sm text-gray-600">{backlog.customerMobile}</p>
+                        <p className="text-xs text-gray-500">{backlog.schemeName}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-red-600">₹{backlog.backlogAmount.toLocaleString()}</p>
+                      <p className="text-xs text-gray-500">
+                        Expected: ₹{backlog.expectedAmount} | Paid: ₹{backlog.actualAmount}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {passbookStats.breakdown.backlogs.length > 10 && (
+                  <div className="text-center py-2">
+                    <p className="text-sm text-gray-500">
+                      And {passbookStats.breakdown.backlogs.length - 10} more customers with pending payments
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Recent Activities */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center">
+              <span className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                📈
+              </span>
+              Recent Activities
+            </h2>
+            <button 
+              onClick={() => {
+                // Refresh recent activities
+                fetchRecentActivities().then(activities => {
+                  setDashboardData(prev => ({ ...prev, recentActivities: activities }));
+                });
+              }}
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Refresh
+            </button>
+          </div>
+          
+          <div className="space-y-4">
+            {recentActivities.length > 0 ? (
+              recentActivities.map((activity) => (
+                <div key={activity.id} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl hover:shadow-md transition-all duration-200 group">
+                  <div className="flex items-center space-x-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                      activity.color === 'green' ? 'bg-green-100' :
+                      activity.color === 'blue' ? 'bg-blue-100' :
+                      activity.color === 'purple' ? 'bg-purple-100' :
+                      'bg-gray-100'
+                    } group-hover:scale-110 transition-transform duration-200`}>
+                      <span className="text-xl">{activity.icon}</span>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900">{activity.title}</p>
+                      <p className="text-sm text-gray-600">{activity.description}</p>
+                      {activity.customer && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          {activity.customer.name} • {activity.customer.mobile}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    {activity.amount > 0 && (
+                      <p className="font-bold text-lg text-gray-900">₹{activity.amount.toLocaleString()}</p>
+                    )}
+                    <p className="text-sm text-gray-500">{activity.time}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">📊</div>
+                <p className="text-gray-500 text-lg">No recent activities</p>
+                <p className="text-gray-400 text-sm mt-2">Activities will appear here as they happen</p>
+              </div>
+            )}
+          </div>
+        </div>
 
       {/* Passbook Modal */}
       {showPassbookModal && selectedCustomer && (
@@ -1683,19 +2026,20 @@ const AdminDashboard = ({ onNavigate }) => {
         </div>
       )}
 
-      {/* Toast Container */}
-      <ToastContainer
-        position="top-right"
-        autoClose={5000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light"
-      />
+        {/* Toast Container */}
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+        />
+      </div>
     </div>
   );
 };

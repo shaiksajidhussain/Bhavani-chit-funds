@@ -51,7 +51,6 @@ const CustomerManagement = () => {
   // Local state for filters
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [schemeFilter, setSchemeFilter] = useState('all');
   const [editingPassbookEntry, setEditingPassbookEntry] = useState(null);
   
   // Passbook filter states
@@ -78,13 +77,6 @@ const CustomerManagement = () => {
     name: '',
     mobile: '',
     address: '',
-    schemeId: '',
-    startDate: '',
-    lastDate: '',
-    amountPerDay: '',
-    duration: '',
-    durationType: 'MONTHS',
-    status: 'ACTIVE',
     photo: ''
   });
 
@@ -109,10 +101,9 @@ const CustomerManagement = () => {
     const params = {};
     if (searchTerm) params.search = searchTerm;
     if (statusFilter !== 'all') params.status = statusFilter;
-    if (schemeFilter !== 'all') params.schemeId = schemeFilter;
 
     fetchCustomers(params);
-  }, [searchTerm, statusFilter, schemeFilter, fetchCustomers]);
+  }, [searchTerm, statusFilter, fetchCustomers]);
 
 
   // Helper function to get scheme name by ID
@@ -323,26 +314,6 @@ const CustomerManagement = () => {
           });
         }
       }
-    } else if (name === 'durationType') {
-      // Handle duration type change with amount conversion
-      const currentAmount = parseFloat(formData.amountPerDay) || 0;
-      let convertedAmount = currentAmount;
-      
-      if (currentAmount > 0) {
-        if (value === 'MONTHS' && formData.durationType === 'DAYS') {
-          // Convert daily to monthly (assuming 30 days per month)
-          convertedAmount = Math.round(currentAmount * 30);
-        } else if (value === 'DAYS' && formData.durationType === 'MONTHS') {
-          // Convert monthly to daily (assuming 30 days per month)
-          convertedAmount = Math.round(currentAmount / 30);
-        }
-      }
-      
-      setFormData(prev => ({
-        ...prev,
-        [name]: value,
-        amountPerDay: convertedAmount > 0 ? convertedAmount.toString() : prev.amountPerDay
-      }));
     } else {
     setFormData(prev => ({
       ...prev,
@@ -364,26 +335,17 @@ const CustomerManagement = () => {
       // Skip photo validation for now to test the API
       console.log('Skipping photo validation for testing');
 
-      // Prepare data for API - only send valid schema fields
+      // Prepare data for API - only send required fields
       const dataToSend = {
         name: formData.name,
         mobile: formData.mobile,
         address: formData.address,
-        schemeId: formData.schemeId,
-        startDate: formData.startDate,
-        lastDate: formData.lastDate || null,
-        amountPerDay: parseInt(formData.amountPerDay) || 0,
-        duration: parseInt(formData.duration) || 0,
-        durationType: formData.durationType?.toUpperCase() || 'MONTHS',
-        status: formData.status,
         photo: formData.photo || null
       };
 
       console.log('Form data before conversion:', formData);
       console.log('Data after conversion:', dataToSend);
       console.log('Data types:', {
-        amountPerDay: typeof dataToSend.amountPerDay,
-        duration: typeof dataToSend.duration,
         photo: typeof dataToSend.photo
       });
 
@@ -403,14 +365,7 @@ const CustomerManagement = () => {
       name: '',
       mobile: '',
       address: '',
-      schemeId: '',
-      startDate: '',
-        lastDate: '',
-      amountPerDay: '',
-      duration: '',
-        durationType: 'MONTHS',
-        status: 'ACTIVE',
-        photo: ''
+      photo: ''
     });
     } catch (error) {
       handleApiError(error, 'Failed to save customer');
@@ -422,8 +377,9 @@ const CustomerManagement = () => {
   const handleEdit = (customer) => {
     setEditingCustomer(customer);
     setFormData({
-      ...customer,
-      durationType: customer.durationType?.toLowerCase() || 'months',
+      name: customer.name || '',
+      mobile: customer.mobile || '',
+      address: customer.address || '',
       photo: customer.photo || ''
     });
     setShowCreateForm(true);
@@ -999,24 +955,11 @@ const CustomerManagement = () => {
                 <option value="DEFAULTED">Defaulted</option>
               </select>
             </div>
-            <div>
-              <select
-                value={schemeFilter}
-                onChange={(e) => setSchemeFilter(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">All Schemes</option>
-                {chitSchemes.map((scheme) => (
-                  <option key={scheme.id} value={scheme.id}>{scheme.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="sm:col-span-2 lg:col-span-1">
+            <div className="sm:col-span-2 lg:col-span-2">
             <button
               onClick={() => {
                 setSearchTerm('');
                 setStatusFilter('all');
-                setSchemeFilter('all');
               }}
                 className="w-full px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             >
@@ -1072,105 +1015,6 @@ const CustomerManagement = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Chit Scheme</label>
-                  <select
-                    name="schemeId"
-                    value={formData.schemeId}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select Scheme</option>
-                    {chitSchemes.map((scheme) => (
-                      <option key={scheme.id} value={scheme.id}>{scheme.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                  <input
-                    type="date"
-                    name="startDate"
-                    value={formData.startDate}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-              </div>
-
-                <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Last Date</label>
-                <input
-                  type="date"
-                  name="lastDate"
-                  value={formData.lastDate}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                </div>
-                
-              </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                  <option value="ACTIVE">Active</option>
-                  <option value="COMPLETED">Completed</option>
-                  <option value="DEFAULTED">Defaulted</option>
-                  </select>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {formData.durationType === 'MONTHS' ? 'Amount per Month' : 'Amount per Day'}
-                  </label>
-                  <input
-                    type="number"
-                    name="amountPerDay"
-                    value={formData.amountPerDay}
-                    onChange={handleInputChange}
-                    required
-                    placeholder={formData.durationType === 'MONTHS' ? 'Enter monthly amount' : 'Enter daily amount'}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {formData.durationType === 'MONTHS' 
-                      ? 'Amount will be automatically converted when switching to daily' 
-                      : 'Amount will be automatically converted when switching to monthly'}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
-                  <input
-                    type="number"
-                    name="duration"
-                    value={formData.duration}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration Type</label>
-                  <select
-                    name="durationType"
-                    value={formData.durationType}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="MONTHS">Months</option>
-                    <option value="DAYS">Days</option>
-                  </select>
-                </div>
-              </div>
 
               {/* Photo Upload */}
               <div>
@@ -1248,13 +1092,6 @@ const CustomerManagement = () => {
                       name: '',
                       mobile: '',
                       address: '',
-                      schemeId: '',
-                      startDate: '',
-                      lastDate: '',
-                      amountPerDay: '',
-                      duration: '',
-                      durationType: 'MONTHS',
-                      status: 'ACTIVE',
                       photo: ''
                     });
                   }}
@@ -1285,28 +1122,22 @@ const CustomerManagement = () => {
 
       {/* Statistics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6 overflow-x-auto">
-        {/* Scheme Statistics */}
-        {chitSchemes.map((scheme) => {
-          const schemeCustomers = safeCustomers.filter(customer => customer.schemeId === scheme.id);
-          const activeCustomers = schemeCustomers.filter(customer => customer.status === 'ACTIVE').length;
-          const totalBalance = schemeCustomers.reduce((sum, customer) => sum + (customer.balance || 0), 0);
-          
-          return (
-            <div key={scheme.id} className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-600 truncate">{scheme.name}</p>
-                  <p className="text-xl sm:text-2xl font-bold text-gray-900">{schemeCustomers.length}</p>
-                  <p className="text-sm text-gray-500">{activeCustomers} active</p>
-                </div>
-                <div className="text-left sm:text-right">
-                  <p className="text-sm text-gray-600">Total Balance</p>
-                  <p className="text-base sm:text-lg font-semibold text-gray-900">₹{totalBalance.toLocaleString()}</p>
-                </div>
-              </div>
+        {/* Customer Statistics */}
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-600 truncate">Total Customers</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{safeCustomers.length}</p>
+              <p className="text-sm text-gray-500">All customers</p>
             </div>
-          );
-        })}
+            <div className="text-left sm:text-right">
+              <p className="text-sm text-gray-600">Active</p>
+              <p className="text-base sm:text-lg font-semibold text-gray-900">
+                {safeCustomers.filter(customer => customer.status === 'ACTIVE').length}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Members Table */}
@@ -1324,11 +1155,6 @@ const CustomerManagement = () => {
                 <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                 <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                 <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Phone</th>
-                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Scheme</th>
-                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">Paid</th>
-                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">Due</th>
-                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Last Date</th>
-                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">Next Due</th>
                 <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -1384,21 +1210,6 @@ const CustomerManagement = () => {
                   </td>
                   <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden md:table-cell">
                     {customer.mobile}
-                  </td>
-                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden lg:table-cell">
-                    <span className="truncate block max-w-24">{getSchemeName(customer.schemeId)}</span>
-                  </td>
-                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden xl:table-cell">
-                    ₹{((customer.amountPerDay || 0) * (customer.duration || 0) - (customer.balance || 0)).toLocaleString()}
-                  </td>
-                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden xl:table-cell">
-                    ₹{(customer.balance || 0).toLocaleString()}
-                  </td>
-                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden lg:table-cell">
-                    {customer.lastDate ? new Date(customer.lastDate).toLocaleDateString('en-GB') : '-'}
-                  </td>
-                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden xl:table-cell">
-                    {new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB')}
                   </td>
                   <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2">

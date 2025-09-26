@@ -34,6 +34,7 @@ const ChitSchemeManagement = () => {
   // Customer store for fetching all customers
   const {
     customers,
+    pagination,
     fetchCustomers
   } = useCustomerStore();
 
@@ -60,6 +61,7 @@ const ChitSchemeManagement = () => {
   const [addingCustomerId, setAddingCustomerId] = useState(null);
   const [isOpeningCustomerModal, setIsOpeningCustomerModal] = useState(false);
   const [addedCustomerId, setAddedCustomerId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Fetch schemes on component mount
   useEffect(() => {
@@ -78,7 +80,25 @@ const ChitSchemeManagement = () => {
   const safeSchemes = Array.isArray(schemes) ? schemes : [];
   const safeCustomers = Array.isArray(customers) ? customers : [];
 
-  // Filter customers based on search term
+  // Reset to page 1 when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  // Fetch customers when modal opens or search/page changes
+  useEffect(() => {
+    if (showAllCustomers) {
+      const params = {
+        page: currentPage,
+        limit: 10
+      };
+      if (searchTerm) params.search = searchTerm;
+      
+      fetchCustomers(params);
+    }
+  }, [showAllCustomers, currentPage, searchTerm, fetchCustomers]);
+
+  // Filter customers based on search term (for local filtering if needed)
   const filteredCustomers = safeCustomers.filter(customer => 
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.mobile.includes(searchTerm) ||
@@ -338,8 +358,16 @@ const ChitSchemeManagement = () => {
   const handleAddNewMember = async () => {
     setIsOpeningCustomerModal(true);
     try {
-      // Ensure customers are loaded
-      await fetchCustomers();
+      // Reset pagination and search when opening modal
+      setCurrentPage(1);
+      setSearchTerm('');
+      
+      // Fetch customers with pagination
+      const params = {
+        page: 1,
+        limit: 10
+      };
+      await fetchCustomers(params);
       setShowAllCustomers(true);
     } catch (error) {
       handleApiError(error, 'Failed to load customers');
@@ -374,9 +402,15 @@ const ChitSchemeManagement = () => {
         setAddedCustomerId(null);
         
         // Refresh the scheme members and customers list
+        const params = {
+          page: currentPage,
+          limit: 10
+        };
+        if (searchTerm) params.search = searchTerm;
+        
         await Promise.all([
           fetchSchemeMembers(selectedScheme.id),
-          fetchCustomers()
+          fetchCustomers(params)
         ]);
       }, 1500);
     } catch (error) {
@@ -1092,7 +1126,7 @@ const ChitSchemeManagement = () => {
                         {filteredCustomers.map((customer, index) => (
                           <tr key={customer.id} className="hover:bg-gray-50">
                             <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {index + 1}
+                              {((pagination?.page || 1) - 1) * (pagination?.limit || 10) + index + 1}
                             </td>
                             <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {customer.photo ? (
@@ -1170,6 +1204,105 @@ const ChitSchemeManagement = () => {
                     </table>
                   </div>
                 </div>
+                
+                {/* Pagination Controls */}
+                {pagination && pagination.pages > 1 && (
+                  <div className="px-4 sm:px-6 py-4 border-t border-gray-200 bg-gray-50">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div className="text-sm text-gray-700">
+                        Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} customers
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        {/* Previous Button */}
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                          disabled={currentPage === 1}
+                          className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Previous
+                        </button>
+                        
+                        {/* Page Numbers */}
+                        <div className="flex space-x-1">
+                          {(() => {
+                            const pages = [];
+                            const totalPages = pagination.pages;
+                            const current = pagination.page;
+                            
+                            // Show first page
+                            if (current > 3) {
+                              pages.push(
+                                <button
+                                  key={1}
+                                  onClick={() => setCurrentPage(1)}
+                                  className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                                >
+                                  1
+                                </button>
+                              );
+                              if (current > 4) {
+                                pages.push(
+                                  <span key="ellipsis1" className="px-3 py-2 text-sm text-gray-500">
+                                    ...
+                                  </span>
+                                );
+                              }
+                            }
+                            
+                            // Show pages around current page
+                            for (let i = Math.max(1, current - 2); i <= Math.min(totalPages, current + 2); i++) {
+                              pages.push(
+                                <button
+                                  key={i}
+                                  onClick={() => setCurrentPage(i)}
+                                  className={`px-3 py-2 text-sm font-medium rounded-lg border ${
+                                    i === current
+                                      ? 'bg-blue-600 text-white border-blue-600'
+                                      : 'text-gray-500 bg-white border-gray-300 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {i}
+                                </button>
+                              );
+                            }
+                            
+                            // Show last page
+                            if (current < totalPages - 2) {
+                              if (current < totalPages - 3) {
+                                pages.push(
+                                  <span key="ellipsis2" className="px-3 py-2 text-sm text-gray-500">
+                                    ...
+                                  </span>
+                                );
+                              }
+                              pages.push(
+                                <button
+                                  key={totalPages}
+                                  onClick={() => setCurrentPage(totalPages)}
+                                  className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                                >
+                                  {totalPages}
+                                </button>
+                              );
+                            }
+                            
+                            return pages;
+                          })()}
+                        </div>
+                        
+                        {/* Next Button */}
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, pagination.pages))}
+                          disabled={currentPage === pagination.pages}
+                          className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* No customers message */}

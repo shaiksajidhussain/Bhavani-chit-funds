@@ -16,6 +16,7 @@ const CustomerManagement = () => {
     showCreateForm,
     editingCustomer,
     showPassbookModal,
+    pagination,
     setShowCreateForm,
     setEditingCustomer,
     setShowPassbookModal,
@@ -52,6 +53,7 @@ const CustomerManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [editingPassbookEntry, setEditingPassbookEntry] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
   
   // Passbook filter states
   const [passbookFrequencyFilter, setPassbookFrequencyFilter] = useState('all');
@@ -96,14 +98,22 @@ const CustomerManagement = () => {
     loadData();
   }, [fetchCustomers, fetchChitSchemes]);
 
-  // Fetch customers when filters change
+  // Reset to page 1 when search term or status filter changes
   useEffect(() => {
-    const params = {};
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
+
+  // Fetch customers when filters or page change
+  useEffect(() => {
+    const params = {
+      page: currentPage,
+      limit: 10
+    };
     if (searchTerm) params.search = searchTerm;
     if (statusFilter !== 'all') params.status = statusFilter;
 
     fetchCustomers(params);
-  }, [searchTerm, statusFilter, fetchCustomers]);
+  }, [searchTerm, statusFilter, currentPage, fetchCustomers]);
 
 
   // Helper function to get scheme name by ID
@@ -356,8 +366,14 @@ const CustomerManagement = () => {
     } else {
         await createCustomer(dataToSend);
         showSuccessMessage('Customer created successfully!');
-        // Refresh the customer list after creation
-        await fetchCustomers();
+        // Refresh the customer list after creation with current filters
+        const params = {
+          page: currentPage,
+          limit: 10
+        };
+        if (searchTerm) params.search = searchTerm;
+        if (statusFilter !== 'all') params.status = statusFilter;
+        await fetchCustomers(params);
       }
       setShowCreateForm(false);
       resetForm();
@@ -406,8 +422,14 @@ const CustomerManagement = () => {
           clearAllPassbookData();
         }
         
-        // Refresh the customer list after deletion
-        await fetchCustomers();
+        // Refresh the customer list after deletion with current filters
+        const params = {
+          page: currentPage,
+          limit: 10
+        };
+        if (searchTerm) params.search = searchTerm;
+        if (statusFilter !== 'all') params.status = statusFilter;
+        await fetchCustomers(params);
       } catch (error) {
         handleApiError(error, 'Failed to delete customer');
       } finally {
@@ -960,6 +982,7 @@ const CustomerManagement = () => {
               onClick={() => {
                 setSearchTerm('');
                 setStatusFilter('all');
+                setCurrentPage(1);
               }}
                 className="w-full px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             >
@@ -1127,7 +1150,7 @@ const CustomerManagement = () => {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex-1">
               <p className="text-sm font-medium text-gray-600 truncate">Total Customers</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900">{safeCustomers.length}</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{pagination?.total || safeCustomers.length}</p>
               <p className="text-sm text-gray-500">All customers</p>
             </div>
             <div className="text-left sm:text-right">
@@ -1162,7 +1185,7 @@ const CustomerManagement = () => {
               {filteredCustomers.map((customer, index) => (
                 <tr key={customer.id} className="hover:bg-gray-50">
                   <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {index + 1}
+                    {((pagination?.page || 1) - 1) * (pagination?.limit || 10) + index + 1}
                   </td>
                   <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden sm:table-cell">
                     {customer.photo ? (
@@ -1242,6 +1265,105 @@ const CustomerManagement = () => {
           </table>
           </div>
         </div>
+        
+        {/* Pagination Controls */}
+        {pagination && pagination.pages > 1 && (
+          <div className="px-4 sm:px-6 py-4 border-t border-gray-200 bg-gray-50">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="text-sm text-gray-700">
+                Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} customers
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                {/* Previous Button */}
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1 || loading}
+                  className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                
+                {/* Page Numbers */}
+                <div className="flex space-x-1">
+                  {(() => {
+                    const pages = [];
+                    const totalPages = pagination.pages;
+                    const current = pagination.page;
+                    
+                    // Show first page
+                    if (current > 3) {
+                      pages.push(
+                        <button
+                          key={1}
+                          onClick={() => setCurrentPage(1)}
+                          className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                        >
+                          1
+                        </button>
+                      );
+                      if (current > 4) {
+                        pages.push(
+                          <span key="ellipsis1" className="px-3 py-2 text-sm text-gray-500">
+                            ...
+                          </span>
+                        );
+                      }
+                    }
+                    
+                    // Show pages around current page
+                    for (let i = Math.max(1, current - 2); i <= Math.min(totalPages, current + 2); i++) {
+                      pages.push(
+                        <button
+                          key={i}
+                          onClick={() => setCurrentPage(i)}
+                          className={`px-3 py-2 text-sm font-medium rounded-lg border ${
+                            i === current
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'text-gray-500 bg-white border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {i}
+                        </button>
+                      );
+                    }
+                    
+                    // Show last page
+                    if (current < totalPages - 2) {
+                      if (current < totalPages - 3) {
+                        pages.push(
+                          <span key="ellipsis2" className="px-3 py-2 text-sm text-gray-500">
+                            ...
+                          </span>
+                        );
+                      }
+                      pages.push(
+                        <button
+                          key={totalPages}
+                          onClick={() => setCurrentPage(totalPages)}
+                          className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                        >
+                          {totalPages}
+                        </button>
+                      );
+                    }
+                    
+                    return pages;
+                  })()}
+                </div>
+                
+                {/* Next Button */}
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, pagination.pages))}
+                  disabled={currentPage === pagination.pages || loading}
+                  className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Passbook Modal */}

@@ -21,6 +21,13 @@ const useCustomerStore = create((set, get) => ({
     amount: '',
     chittiAmount: ''
   },
+  // Pagination state
+  pagination: {
+    page: 1,
+    limit: 10,
+    total: 0,
+    pages: 0
+  },
 
   // Actions
   setLoading: (loading) => set({ loading }),
@@ -30,6 +37,7 @@ const useCustomerStore = create((set, get) => ({
   setEditingCustomer: (customer) => set({ editingCustomer: customer }),
   setShowPassbookModal: (show) => set({ showPassbookModal: show }),
   setPassbookFormData: (data) => set({ passbookFormData: data }),
+  setPagination: (pagination) => set({ pagination }),
 
   // Reset form data
   resetForm: () => set({
@@ -73,9 +81,16 @@ const useCustomerStore = create((set, get) => ({
       
       // Handle nested response structure
       const customers = responseData.data?.customers || responseData.customers || responseData;
+      const pagination = responseData.data?.pagination || responseData.pagination || {
+        page: 1,
+        limit: 10,
+        total: Array.isArray(customers) ? customers.length : 0,
+        pages: 1
+      };
       
       set({ 
         customers: Array.isArray(customers) ? customers : [],
+        pagination: pagination,
         loading: false 
       });
     } catch (error) {

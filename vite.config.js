@@ -8,6 +8,11 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',  // allows access from external IPs
     port: 5173,       // optional, default is 5173
+    allowedHosts: [
+      'localhost',
+      'bhavanichits.com',
+      'www.bhavanichits.com'
+    ],
     cors: {
       origin: [
         'http://localhost:5173',

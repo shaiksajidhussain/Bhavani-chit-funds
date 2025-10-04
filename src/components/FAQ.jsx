@@ -97,7 +97,7 @@ const FAQ = () => {
             >
               <button
                 onClick={() => toggleFAQ(index)}
-                className="w-full px-8 py-6 text-left flex items-center justify-between hover:bg-gray-50transition-colors duration-200"
+                className="w-full px-8 py-6 text-left flex items-center justify-between hover:bg-gray-50 transition-colors duration-200"
               >
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white pr-4">
                   {faq.question}
@@ -138,6 +138,7 @@ const FAQ = () => {
             <button
               onClick={() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })}
               className="px-8 py-3 bg-gradient-to-r from-violet-600 to-amber-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-amber-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+              aria-label="Contact Bhavani Chits customer support for assistance"
             >
               Contact Us
             </button>

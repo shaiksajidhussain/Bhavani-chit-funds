@@ -232,7 +232,7 @@ const HowItWorks = () => {
             {steps.map((_, index) => (
               <div key={index} className="flex flex-col items-center">
                 <div className="w-4 h-4 bg-violet-600 dark:bg-violet-400 rounded-full shadow-lg"></div>
-                <span className="text-sm text-gray-500 dark:text-gray-400 mt-2">Step {index + 1}</span>
+                <span className="text-sm text-gray-600 dark:text-gray-300 mt-2">Step {index + 1}</span>
               </div>
             ))}
           </div>

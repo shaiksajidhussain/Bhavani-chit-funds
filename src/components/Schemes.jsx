@@ -236,6 +236,7 @@ const Schemes = ({ onSchemeSelect }) => {
                 <button
                   onClick={() => handleEnquire(scheme)}
                   className="w-full px-6 py-3 bg-gradient-to-r from-violet-600 to-violet-700 dark:from-violet-500 dark:to-violet-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-violet-800 dark:hover:from-violet-600 dark:hover:to-violet-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 hover:scale-105 relative overflow-hidden group"
+                  aria-label={`Enquire about ${scheme.name} chit plan`}
                 >
                   {/* Button shine effect */}
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>

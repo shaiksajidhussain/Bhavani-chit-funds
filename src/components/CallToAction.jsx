@@ -22,12 +22,14 @@ const CallToAction = () => {
           <button
             onClick={() => document.getElementById('schemes')?.scrollIntoView({ behavior: 'smooth' })}
             className="px-8 py-4 bg-white dark:bg-gray-100 text-violet-600 dark:text-violet-700 font-semibold rounded-xl hover:bg-gray-100 dark:hover:bg-white transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1 reveal"
+            aria-label="View our chit fund investment plans and schemes"
           >
             Explore Our Chit Plans
           </button>
           <button
             onClick={scrollToContact}
             className="px-8 py-4 border-2 border-white text-white font-semibold rounded-xl hover:bg-white hover:text-violet-600 dark:hover:text-violet-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1 reveal"
+            aria-label="Contact us to join Bhavani Chits"
           >
             Join Now
           </button>

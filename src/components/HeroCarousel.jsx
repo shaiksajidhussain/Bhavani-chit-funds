@@ -10,27 +10,27 @@ const HeroCarousel = () => {
   const slides = [
     {
       image: "https://thefinancepoint.com/wp-content/uploads/2021/11/What-is-Chit-Fund.jpeg",
-      title: "Empowering Your Savings",
-      subtitle: "Transparent, Timely, Trustworthy",
-      description: "Join thousands of successful chit fund members who trust Bhavani for their financial growth."
+      title: "Invest & Earn with Bhavani Chits",
+      subtitle: "Your Trusted Chit Fund Partner",
+      description: "Join thousands of satisfied members. Simple, transparent, and profitable chit fund investment plans."
     },
     {
       image: "https://www.valarnidhichits.com/css/images/banner3.jpg",
-      title: "Community-Driven Growth",
-      subtitle: "Building Financial Discipline Together",
-      description: "Our platform brings communities together for mutual financial success and prosperity."
+      title: "Safe & Transparent Operations",
+      subtitle: "Regulatory Compliance & Trust",
+      description: "All our operations adhere to regulatory norms and our processes are completely transparent."
     },
     {
       image: "https://assets.thehansindia.com/h-upload/2025/02/17/1524787-chit-funds-in-karnataka-economic-impact-opportunities-and-risks.webp",
-      title: "Smart Investment Solutions",
-      subtitle: "Modern Technology Meets Traditional Values",
-      description: "Advanced digital tools to manage your chit fund investments with complete transparency."
+      title: "Flexible Investment Plans",
+      subtitle: "Multiple Schemes for Every Budget",
+      description: "Choose from various chit schemes to match different budgets and tenures that fit your financial goals."
     },
     {
-      image: "https://www.lawjure.com/wp-content/uploads/2022/01/index.jpg",
-      title: "Secure & Reliable",
-      subtitle: "Your Trust, Our Commitment",
-      description: "Regulated and secure chit fund operations ensuring your investments are always protected."
+      image: "https://leads.paysprint.in//upload/blogs/e86d96788afef11939bfb57e5b7c7906.png",
+      title: "Timely & Reliable Payouts",
+      subtitle: "Your Success, Our Priority",
+      description: "We ensure prompt and reliable disbursement to winning members with dedicated customer support."
     }
   ];
 
@@ -134,11 +134,17 @@ const HeroCarousel = () => {
                 
                 {/* CTA Buttons */}
                 <div className="flex flex-col sm:flex-row gap-4 animate-fade-in-delay-2">
-                  <button className="px-8 py-4 bg-violet-600 text-white font-semibold rounded-xl hover:bg-violet-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 hover:scale-105 border-2 border-violet-600">
-                    Explore Schemes
+                  <button 
+                    onClick={() => document.getElementById('schemes')?.scrollIntoView({ behavior: 'smooth' })}
+                    className="px-8 py-4 bg-violet-600 text-white font-semibold rounded-xl hover:bg-violet-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 hover:scale-105 border-2 border-violet-600"
+                  >
+                    Explore Our Chit Plans
                   </button>
-                  <button className="px-8 py-4 border-2 border-white text-white font-semibold rounded-xl hover:bg-white hover:text-gray-900 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 hover:scale-105">
-                    Talk to Us
+                  <button 
+                    onClick={() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })}
+                    className="px-8 py-4 border-2 border-white text-white font-semibold rounded-xl hover:bg-white hover:text-gray-900 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 hover:scale-105"
+                  >
+                    Join Now
                   </button>
                 </div>
               </div>

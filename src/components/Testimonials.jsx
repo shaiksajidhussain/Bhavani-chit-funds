@@ -11,21 +11,21 @@ const Testimonials = () => {
 
   const testimonials = [
     {
-      quote: "Bhavani Chit Funds has transformed how we manage our community savings. The transparency and ease of use is unmatched.",
+      quote: "Bhavani Chits has been my trusted partner for savings for over 5 years. The transparency and timely payouts give me complete confidence in my investments.",
       name: "Rajesh Kumar",
-      role: "Business Owner",
+      role: "Salaried Individual",
       avatar: "👨‍💼"
     },
     {
-      quote: "I've been a member for 3 years now. The automated reminders and digital tracking make it so convenient to stay on top of payments.",
+      quote: "As a homemaker, I needed a safe way to save for my children's education. Bhavani Chits' flexible plans and regular updates have been perfect for my needs.",
       name: "Priya Sharma",
-      role: "Teacher",
+      role: "Homemaker",
       avatar: "👩‍🏫"
     },
     {
-      quote: "The admin dashboard gives me complete control over our chit fund operations. It's like having a financial advisor at my fingertips.",
+      quote: "Running a small business requires disciplined savings. Bhavani Chits' various schemes have helped me build a substantial corpus over the years.",
       name: "Amit Patel",
-      role: "Fund Manager",
+      role: "Small Business Owner",
       avatar: "👨‍💻"
     }
   ];
@@ -131,7 +131,7 @@ const Testimonials = () => {
             What Our Members Say
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto reveal">
-            Join thousands of satisfied members who trust Bhavani Chit Funds for their savings journey.
+            Join thousands of satisfied members who trust Bhavani Chits for their savings journey. We cater to salaried individuals, small business owners, homemakers — anyone who wants to grow savings through disciplined investment.
           </p>
         </div>
 

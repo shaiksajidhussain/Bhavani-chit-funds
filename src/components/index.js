@@ -7,6 +7,8 @@ export { default as Schemes } from './Schemes';
 export { default as Reports } from './Reports';
 export { default as AnalyticsStrip } from './AnalyticsStrip';
 export { default as Testimonials } from './Testimonials';
+export { default as AboutUs } from './AboutUs';
+export { default as FAQ } from './FAQ';
 export { default as CallToAction } from './CallToAction';
 export { default as ContactForm } from './ContactForm';
 export { default as Footer } from './Footer';

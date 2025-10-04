@@ -107,44 +107,44 @@ const Schemes = ({ onSchemeSelect }) => {
 
   const schemes = [
     {
-      name: "Silver",
+      name: "Standard Chit Plans",
       monthlyAmount: "₹1,000",
-      duration: "20 months",
-      members: "20×20",
+      duration: "12-24 months",
+      members: "Flexible",
       features: [
-        "Perfect for beginners",
-        "Low monthly commitment",
-        "Quick completion cycle",
-        "Ideal for small savings"
+        "Monthly installments with fixed tenure",
+        "Regular draw schedule",
+        "Low entry amounts",
+        "Minimal paperwork and quick registration"
       ],
       color: "from-gray-400 to-gray-600",
-     
+      gradient: "from-gray-100 to-gray-200 dark:from-gray-800/30 dark:to-gray-900/30"
     },
     {
-      name: "Gold",
+      name: "Premium / High Value Plans",
       monthlyAmount: "₹5,000",
-      duration: "25 months",
-      members: "25×25",
+      duration: "24-36 months",
+      members: "Premium",
       features: [
-        "Balanced investment option",
-        "Moderate monthly commitment",
-        "Extended savings period",
-        "Popular choice for families"
+        "Larger sums for higher returns",
+        "Extended tenures available",
+        "Secure handling of funds",
+        "Regular statements & updates"
       ],
       color: "from-amber-400 to-amber-600",
       gradient: "from-amber-100 to-amber-200 dark:from-amber-800/30 dark:to-amber-900/30",
       popular: true
     },
     {
-      name: "Platinum",
-      monthlyAmount: "₹10,000",
-      duration: "30 months",
-      members: "30×30",
+      name: "Customized Chit Plans",
+      monthlyAmount: "Flexible",
+      duration: "Custom",
+      members: "Tailored",
       features: [
-        "Premium investment plan",
-        "Higher monthly commitment",
-        "Long-term wealth building",
-        "Best for serious investors"
+        "Tailor installment amount and duration",
+        "Group / Corporate Chits available",
+        "For clubs, groups, small companies",
+        "Transparent monthly draw schedules"
       ],
       color: "from-violet-400 to-violet-600",
       gradient: "from-violet-100 to-violet-200 dark:from-violet-800/30 dark:to-violet-900/30"
@@ -177,10 +177,10 @@ const Schemes = ({ onSchemeSelect }) => {
       <div ref={schemesRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="text-center mb-16">
           <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-4 reveal">
-            Choose Your Investment Plan
+            Services / Chit Plans
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto reveal">
-            Flexible schemes designed to fit your savings goals and financial capacity.
+            Flexible schemes designed to fit your savings goals and financial capacity. Choose from our range of chit fund plans.
           </p>
         </div>
 

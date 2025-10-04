@@ -7,6 +7,8 @@ import Schemes from './Schemes';
 import Reports from './Reports';
 import AnalyticsStrip from './AnalyticsStrip';
 import Testimonials from './Testimonials';
+import AboutUs from './AboutUs';
+import FAQ from './FAQ';
 import CallToAction from './CallToAction';
 import ContactForm from './ContactForm';
 import Footer from './Footer';
@@ -26,9 +28,10 @@ const Home = ({ onShowLogin }) => {
       <FeatureGrid />
       <HowItWorks />
       <Schemes onSchemeSelect={handleSchemeSelect} />
-      <Reports />
       <AnalyticsStrip />
       <Testimonials />
+      <AboutUs />
+      <FAQ />
       <CallToAction />
       <ContactForm selectedScheme={selectedScheme} />
       <Footer />

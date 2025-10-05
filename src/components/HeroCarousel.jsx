@@ -10,49 +10,51 @@ const HeroCarousel = () => {
 
   const slides = [
     {
-      image: optimizeImageUrl("https://media.assettype.com/tnm%2Fimport%2Fsites%2Fdefault%2Ffiles%2FInvestment_money_pixabayByNattananKanchanaprat.jpg?w=1200&ar=40%3A21&auto=format%2Ccompress&ogImage=true&mode=crop&enlarge=true&overlay=false&overlay_position=bottom&overlay_width=100", {
+      image: optimizeImageUrl("https://res.cloudinary.com/dgus6y6lm/image/upload/v1759697453/monet_lqno1v.jpg", {
         width: '1920',
         height: '1080',
         quality: '80',
         format: 'webp'
       }),
-      title: "Invest & Earn with Bhavani Chits",
-      subtitle: "Your Trusted Chit Fund Partner",
-      description: "Join thousands of satisfied members. Simple, transparent, and profitable chit fund investment plans."
+      title: "Business Plan: Grow Your Enterprise with Confidence",
+      subtitle: "Tailored Solutions for Business Owners",
+      description: "Unlock working capital, expand your operations, or invest in new opportunities. Our business-focused plans offer flexible funding up to ₹50 lakhs, competitive rates, and expert guidance to help your business thrive. Join hundreds of successful organizations who trust us to fuel their growth."
     },
     {
-      image: optimizeImageUrl("https://thumbs.dreamstime.com/b/coins-financial-growth-chart-blue-background-finance-investment-concepts-coins-financial-growth-chart-blue-344575282.jpg", {
+      image: optimizeImageUrl("https://cdn.bikedekho.com/processedimages/royal-enfield/classic350/source/classic35068b6db548b074.jpg?imwidth=880", {
         width: '1920',
         height: '1080',
         quality: '80',
         format: 'webp'
       }),
-      title: "Safe & Transparent Operations",
-      subtitle: "Regulatory Compliance & Trust",
-      description: "All our operations adhere to regulatory norms and our processes are completely transparent."
+      title: "Small Plan: Own Your Dream Bike",
+      subtitle: "Start with Easy Monthly Savings",
+      description: "Ideal for young professionals and students. Save as little as ₹1,000 per month and ride home your favorite bike in just 24 months. Hassle-free, transparent, and secure."
     },
     {
-      image: optimizeImageUrl("https://www.theitbase.com/wp-content/uploads/2025/07/Everything-You-Need-to-Know-About-a-Savings-Plan-in-2025-1200x675.jpg", {
+      image: optimizeImageUrl("https://images.pexels.com/photos/358070/pexels-photo-358070.jpeg?auto=compress&w=1920&h=1080&fit=crop", {
         width: '1920',
         height: '1080',
         quality: '80',
         format: 'webp'
       }),
-      title: "Flexible Investment Plans",
-      subtitle: "Multiple Schemes for Every Budget",
-      description: "Choose from various chit schemes to match different budgets and tenures that fit your financial goals."
+      title: "Medium Plan: Drive Your Own Car",
+      subtitle: "Perfect for Growing Families",
+      description: "Plan for your family’s comfort. Invest ₹5,000 per month and get access to funds for a new car in 36 months. Flexible withdrawal options and professional support throughout."
     },
     {
-      image: optimizeImageUrl("https://www.stampli.com/wp-content/uploads/2023/09/00-stampli-Improving-the-Vendor-Payment-Process-with-AP-Automation_hero-1024x536.png", {
+      image: optimizeImageUrl("https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg?auto=compress&w=1920&h=1080&fit=crop", {
         width: '1920',
         height: '1080',
         quality: '80',
         format: 'webp'
       }),
-      title: "Timely & Reliable Payouts",
-      subtitle: "Your Success, Our Priority",
-      description: "We ensure prompt and reliable disbursement to winning members with dedicated customer support."
-    }
+      title: "Large Plan: Secure Your Dream Home or Business",
+      subtitle: "Empowering Ambitious Professionals",
+      description: "Looking to buy a house or expand your business? Our large plans offer up to ₹25 lakhs with flexible tenures. Trusted by professionals and entrepreneurs for over a decade."
+    },
+    
+
   ];
 
   useEffect(() => {

@@ -105,9 +105,9 @@ const Navbar = ({ onShowLogin }) => {
           <div className="flex-shrink-0">
             <Link to="/" className="block">
               <img 
-                src="https://res.cloudinary.com/dgus6y6lm/image/upload/v1756502505/bhavanilogo_jjef0a.jpg"
+                src="https://res.cloudinary.com/dgus6y6lm/image/upload/v1759697734/logo_dchcng.png"
                 alt="Bhavani Chit Funds Logo"
-                className="h-12 lg:h-16 w-auto object-contain hover:opacity-80 transition-opacity duration-200 cursor-pointer"
+                className="h-12 lg:h-9 w-auto object-contain hover:opacity-80 transition-opacity duration-200 cursor-pointer"
               />
             </Link>
           </div>
@@ -143,13 +143,13 @@ const Navbar = ({ onShowLogin }) => {
               >
                 Features
               </a>
-              <a 
+              {/* <a 
                 href="#reports" 
                 onClick={(e) => { e.preventDefault(); scrollToSection('reports'); }}
                 className="nav-link text-gray-700 hover:text-violet-600 transition-colors duration-200 dark:text-gray-300 dark:hover:text-violet-400"
               >
                 Reports
-              </a>
+              </a> */}
               <a 
                 href="#contact" 
                 onClick={(e) => { e.preventDefault(); scrollToSection('contact'); }}
@@ -191,12 +191,14 @@ const Navbar = ({ onShowLogin }) => {
                 </>
               ) : (
                 <>
+                  {/*
                   <button
                     onClick={() => handleLogin('Client')}
                     className="px-5 py-2.5 text-sm font-medium text-violet-600 border border-violet-600 rounded-xl hover:bg-violet-600 hover:text-white transition-all duration-200 shadow-sm hover:shadow-md dark:text-violet-400 dark:border-violet-400 dark:hover:bg-violet-400 dark:hover:text-gray-900"
                   >
                     Client Login
                   </button>
+                  */}
                   <button
                     onClick={() => handleLogin('Admin')}
                     className="px-5 py-2.5 text-sm font-medium text-white bg-violet-600 rounded-xl hover:bg-violet-700 transition-all duration-200 shadow-sm hover:shadow-md dark:bg-violet-500 dark:hover:bg-violet-600"
